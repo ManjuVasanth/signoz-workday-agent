@@ -1,0 +1,323 @@
+{
+  "orgs": {
+    "FIN_OPS_1001": {
+      "code": "FIN_OPS_1001",
+      "name": "Finance Operations Team",
+      "wid": "SUPORG_WID_64356124E37B5D98",
+      "manager": "John Smith",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Job Management",
+      "location": "USA_DALLAS",
+      "created": "2026-06-29 12:27:05"
+    },
+    "FIN_OPS_1002": {
+      "code": "FIN_OPS_1002",
+      "name": "Finance Operations Team",
+      "wid": "SUPORG_WID_A13144FB268509F8",
+      "manager": "John Smith",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Job Management",
+      "location": "USA_DALLAS",
+      "created": "2026-06-29 13:42:25"
+    },
+    "{Input.SupOrgCode}": {
+      "code": "{Input.SupOrgCode}",
+      "name": "{Input.SupOrgName}",
+      "wid": "SUPORG_WID_8EE225FD219A4FBC",
+      "manager": "{Input.Manager}",
+      "subtype": "{Input.OrgSubtype}",
+      "superior": "{Input.SuperiorOrg}",
+      "staffing": "{Input.StaffingModel}",
+      "location": "{Input.PrimaryLocation}",
+      "created": "2026-06-29 13:46:13"
+    },
+    "HR_OPS_1001": {
+      "code": "HR_OPS_1001",
+      "name": "HR Operations Team",
+      "wid": "SUPORG_WID_265595D12807C862",
+      "manager": "John Smith",
+      "subtype": "HR Department",
+      "superior": "HR_PARENT_ORG",
+      "staffing": "Job Management",
+      "location": "USA_DALLAS",
+      "created": "2026-07-11 15:03:03"
+    },
+    "HR_OPS_1002": {
+      "code": "HR_OPS_1002",
+      "name": "HR Operations Team",
+      "wid": "SUPORG_WID_F924D677F864A041",
+      "manager": "David Smith",
+      "subtype": "HR Department",
+      "superior": "HR_PARENT_ORG",
+      "staffing": "Job Management",
+      "location": "USA_IRVING",
+      "created": "2026-07-11 15:03:55"
+    },
+    "HR_OPS_1003": {
+      "code": "HR_OPS_1003",
+      "name": "HR Operations Team",
+      "wid": "SUPORG_WID_B7788998B8CC5111",
+      "manager": "John Smith",
+      "subtype": "HR Department",
+      "superior": "HR_PARENT_ORG",
+      "staffing": "Job Management",
+      "location": "USA_DENTON",
+      "created": "2026-07-11 15:04:38"
+    },
+    "FIN_OPS_1010": {
+      "code": "FIN_OPS_1010",
+      "name": "Finance Operations Team",
+      "wid": "SUPORG_WID_CA1C6AD5E114F1A3",
+      "manager": "Fe Lin",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Job Management",
+      "location": "USA_Texas",
+      "created": "2026-07-11 15:05:29"
+    },
+    "FIN_OPS_1011": {
+      "code": "FIN_OPS_1011",
+      "name": "Finance Operations Team",
+      "wid": "SUPORG_WID_B15DF8EF6B9296F3",
+      "manager": "Louise Hay",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Position Management",
+      "location": "USA_IRVING",
+      "created": "2026-07-11 15:06:02"
+    },
+    "FIN_OPS_1012": {
+      "code": "FIN_OPS_1012",
+      "name": "Finance Operations Team",
+      "wid": "SUPORG_WID_C16363A5B8706401",
+      "manager": "Henry John",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Job Management",
+      "location": "USA_DALLAS",
+      "created": "2026-07-11 15:06:32"
+    },
+    "FIN_OPS_1013": {
+      "code": "FIN_OPS_1013",
+      "name": "Finance Operations Team",
+      "wid": "SUPORG_WID_AE1243FD872919DE",
+      "manager": "Jo Henry",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Position Management",
+      "location": "USA_Arlington",
+      "created": "2026-07-11 15:07:10"
+    },
+    "FIN_OPS_1014": {
+      "code": "FIN_OPS_1014",
+      "name": "Finance Operations Team",
+      "wid": "SUPORG_WID_780F6EFCF66F45FC",
+      "manager": "Lee Ron",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Position Management",
+      "location": "USA_FarmersBranch",
+      "created": "2026-07-11 15:07:54"
+    },
+    "FIN_OPS_1015": {
+      "code": "FIN_OPS_1015",
+      "name": "Finance Operations Team12",
+      "wid": "SUPORG_WID_4E86176FA6B0CE9B",
+      "manager": "Se Lin",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Job Management",
+      "location": "USA_DALLAS",
+      "created": "2026-07-11 15:08:23"
+    },
+    "FIN_OPS_1022": {
+      "code": "FIN_OPS_1022",
+      "name": "Finance Operations Team22",
+      "wid": "SUPORG_WID_A0A0AD43710D7E08",
+      "manager": "Jin Kin",
+      "subtype": "Fin Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Position Management",
+      "location": "USA_DALLAS",
+      "created": "2026-07-11 15:09:04"
+    },
+    "IT_OPS_1001": {
+      "code": "IT_OPS_1001",
+      "name": "IT Operations Team",
+      "wid": "SUPORG_WID_B171DF9AE0F80CD5",
+      "manager": "John George",
+      "subtype": "IT Department",
+      "superior": "IT_PARENT_ORG",
+      "staffing": "Position Management",
+      "location": "USA_DALLAS",
+      "created": "2026-07-11 15:23:36"
+    },
+    "IT_OPS_1002": {
+      "code": "IT_OPS_1002",
+      "name": "IT Operations Team",
+      "wid": "SUPORG_WID_416F005ADE61C5B1",
+      "manager": "John Lee",
+      "subtype": "IT Department",
+      "superior": "IT_PARENT_ORG",
+      "staffing": "Job Management",
+      "location": "USA_IRVING",
+      "created": "2026-07-11 15:24:19"
+    },
+    "FIN_OPS_1030": {
+      "code": "FIN_OPS_1030",
+      "name": "Finance Operations Team",
+      "wid": "SUPORG_WID_DA21A14534589A7D",
+      "manager": "Lee Smith",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Job Management",
+      "location": "USA_DENTON",
+      "created": "2026-07-11 15:24:44"
+    },
+    "FIN_OPS_1031": {
+      "code": "FIN_OPS_1031",
+      "name": "Finance Operations Team",
+      "wid": "SUPORG_WID_EB600CD259F0668E",
+      "manager": "Fe Lu",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Position Management",
+      "location": "USA_DALLAS",
+      "created": "2026-07-11 15:25:04"
+    },
+    "FIN_OPS_1032": {
+      "code": "FIN_OPS_1032",
+      "name": "Finance Operations Team",
+      "wid": "SUPORG_WID_44DABCB284FD5B82",
+      "manager": "John Smith",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Position Management",
+      "location": "USA_Arlington",
+      "created": "2026-07-11 15:25:25"
+    },
+    "FIN_OPS_1034": {
+      "code": "FIN_OPS_1034",
+      "name": "Finance Operations Team",
+      "wid": "SUPORG_WID_9DD1903E1985A889",
+      "manager": "Gr Smith",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Position Management",
+      "location": "USA_DALLAS",
+      "created": "2026-07-11 15:36:52"
+    },
+    "FIN_OPS_1035": {
+      "code": "FIN_OPS_1035",
+      "name": "Finance Operations Team",
+      "wid": "SUPORG_WID_E700CF6181463A06",
+      "manager": "Smu Lith",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Position Management",
+      "location": "USA_Texas",
+      "created": "2026-07-11 15:37:26"
+    },
+    "FIN_OPS_1036": {
+      "code": "FIN_OPS_1036",
+      "name": "Finance Operations Team",
+      "wid": "SUPORG_WID_0A6BD0EF1D459878",
+      "manager": "Frre Rock",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Position Management",
+      "location": "USA_DENTON",
+      "created": "2026-07-11 15:37:52"
+    },
+    "FIN_OPS_1037": {
+      "code": "FIN_OPS_1037",
+      "name": "Finance Operations Team",
+      "wid": "SUPORG_WID_8D579177077DDD13",
+      "manager": "Kin Lim",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Job Management",
+      "location": "USA_DALLAS",
+      "created": "2026-07-11 15:38:11"
+    },
+    "FIN_OPS_1038": {
+      "code": "FIN_OPS_1038",
+      "name": "Finance Operations Team",
+      "wid": "SUPORG_WID_A63DE196C35ED685",
+      "manager": "We Ley",
+      "subtype": "HR Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Job Management",
+      "location": "USA_DALLAS",
+      "created": "2026-07-11 15:38:37"
+    },
+    "FIN_OPS_1065": {
+      "code": "FIN_OPS_1065",
+      "name": "Finance Operations Team",
+      "wid": "SUPORG_WID_BE4B17243D376925",
+      "manager": "John Smith",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Job Management",
+      "location": "USA_DALLAS",
+      "created": "2026-07-11 15:39:08"
+    },
+    "FIN_OPS_1060": {
+      "code": "FIN_OPS_1060",
+      "name": "Finance Operations Team",
+      "wid": "SUPORG_WID_8EC0C723B93E6AD9",
+      "manager": "Esw Re",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Job Management",
+      "location": "USA_DALLAS",
+      "created": "2026-07-11 15:39:26"
+    },
+    "FIN_OPS_1033": {
+      "code": "FIN_OPS_1033",
+      "name": "Finance Operations Team",
+      "wid": "SUPORG_WID_2AFD38E33FFBF0CC",
+      "manager": "John Smith",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Position Management",
+      "location": "USA_DALLAS",
+      "created": "2026-07-22 14:34:17"
+    },
+    "FIN_1001": {
+      "code": "FIN_1001",
+      "name": "Finance Team",
+      "wid": "SUPORG_WID_F3FFFDA1481395E8",
+      "manager": "John Smith",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Job Management",
+      "location": "USA_DALLAS",
+      "created": "2026-07-23 15:15:50"
+    },
+    "FIN_1000": {
+      "code": "FIN_1000",
+      "name": "Finance Team1",
+      "wid": "SUPORG_WID_8E466E84140D2F1F",
+      "manager": "John Smith",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Position Management",
+      "location": "USA_DALLAS",
+      "created": "2026-07-23 15:34:24"
+    },
+    "FIN_1002": {
+      "code": "FIN_1002",
+      "name": "Finance Team2",
+      "wid": "SUPORG_WID_FC842A553BAA822A",
+      "manager": "John Smith",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Job Management",
+      "location": "USA_DALLAS",
+      "created": "2026-07-23 15:41:45"
+    }
+  }
+}

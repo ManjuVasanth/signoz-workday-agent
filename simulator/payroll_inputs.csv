@@ -1,0 +1,6 @@
+Employee_ID,Pay_Component,Amount
+21001,Overtime,420.00
+21005,Shift Differential,150.00
+21013,Overtime,310.00
+99999,Overtime,100.00
+21020,On-Call Pay,200.00

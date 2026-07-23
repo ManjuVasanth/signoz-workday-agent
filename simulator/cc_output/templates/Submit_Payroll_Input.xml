@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Styles>
+  <Style ss:ID="sTitle"><Font ss:Bold="1" ss:Size="16" ss:Color="#1F3864"/>
+  </Style>
+  <Style ss:ID="sHdr"><Font ss:Bold="1"/></Style>
+  <Style ss:ID="sBP"><Interior ss:Color="#2F3699" ss:Pattern="Solid"/>
+   <Font ss:Color="#FFFFFF" ss:Bold="1"/></Style>
+  <Style ss:ID="sArea"><Interior ss:Color="#6B7C3A" ss:Pattern="Solid"/>
+   <Font ss:Color="#FFFFFF" ss:Bold="1"/></Style>
+  <Style ss:ID="sRes"><Interior ss:Color="#FFFDE7" ss:Pattern="Solid"/>
+   <Font ss:Size="9"/></Style>
+  <Style ss:ID="sFld"><Interior ss:Color="#2F3699" ss:Pattern="Solid"/>
+   <Font ss:Color="#FFFFFF" ss:Bold="1"/></Style>
+ </Styles>
+ <Worksheet ss:Name="Overview">
+  <Table>
+   <Row/><Row><Cell ss:Index="2" ss:StyleID="sTitle">
+    <Data ss:Type="String">Submit Payroll Input</Data></Cell></Row>
+   <Row/><Row><Cell ss:Index="2">
+    <Data ss:Type="String">Submits a single payroll input synchronously, returning validation results in the response.</Data></Cell></Row>
+   <Row/>
+   <Row>
+    <Cell ss:Index="2" ss:StyleID="sHdr">
+     <Data ss:Type="String">Business Process</Data></Cell>
+    <Cell ss:StyleID="sHdr">
+     <Data ss:Type="String">Processing Instruction</Data></Cell>
+    <Cell ss:StyleID="sHdr">
+     <Data ss:Type="String">Processing Comment</Data></Cell>
+   </Row>
+   <Row>
+    <Cell ss:Index="2" ss:StyleID="sBP">
+     <Data ss:Type="String">Submit Payroll Input</Data></Cell>
+    <Cell><Data ss:Type="String">Manual Processing | Automatic Processing |
+ Run Now | Run Now With Automatic Processing</Data></Cell>
+   </Row>
+  </Table>
+ </Worksheet>
+ <Worksheet ss:Name="Submit Payroll Input">
+  <Table>
+   <Row><Cell ss:StyleID="sTitle">
+    <Data ss:Type="String">Submit Payroll Input</Data></Cell></Row>
+   <Row><Cell ss:StyleID="sArea"><Data ss:Type="String">Area</Data></Cell>
+    <Cell ss:StyleID="sBP" ss:MergeAcross="5">
+     <Data ss:Type="String">All</Data></Cell></Row>
+   <Row><Cell ss:StyleID="sArea">
+    <Data ss:Type="String">Restrictions</Data></Cell><Cell ss:StyleID="sRes"><Data ss:Type="String">Required</Data></Cell><Cell ss:StyleID="sRes"><Data ss:Type="String">Required</Data></Cell><Cell ss:StyleID="sRes"><Data ss:Type="String">Required</Data></Cell><Cell ss:StyleID="sRes"><Data ss:Type="String">Required</Data></Cell><Cell ss:StyleID="sRes"><Data ss:Type="String">Optional</Data></Cell><Cell ss:StyleID="sRes"><Data ss:Type="String">Required</Data></Cell></Row>
+   <Row><Cell ss:StyleID="sArea">
+    <Data ss:Type="String">Format</Data></Cell><Cell ss:StyleID="sRes"><Data ss:Type="String">Text</Data></Cell><Cell ss:StyleID="sRes"><Data ss:Type="String">Employee_ID</Data></Cell><Cell ss:StyleID="sRes"><Data ss:Type="String">Pay_Component_ID</Data></Cell><Cell ss:StyleID="sRes"><Data ss:Type="String">YYYY-MM-DD</Data></Cell><Cell ss:StyleID="sRes"><Data ss:Type="String">YYYY-MM-DD</Data></Cell><Cell ss:StyleID="sRes"><Data ss:Type="String">Decimal</Data></Cell></Row>
+   <Row><Cell ss:StyleID="sArea">
+    <Data ss:Type="String">Fields</Data></Cell><Cell ss:StyleID="sFld"><Data ss:Type="String">Spreadsheet Key*</Data></Cell><Cell ss:StyleID="sFld"><Data ss:Type="String">Employee*</Data></Cell><Cell ss:StyleID="sFld"><Data ss:Type="String">Pay Component*</Data></Cell><Cell ss:StyleID="sFld"><Data ss:Type="String">Start Date*</Data></Cell><Cell ss:StyleID="sFld"><Data ss:Type="String">End Date</Data></Cell><Cell ss:StyleID="sFld"><Data ss:Type="String">Amount*</Data></Cell></Row>
+  </Table>
+ </Worksheet>
+</Workbook>

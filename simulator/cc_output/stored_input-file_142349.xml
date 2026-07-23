@@ -1,0 +1,6 @@
+Employee_ID,One_Time_Payment_Plan,Amount,Currency,Comment
+21001,Spot Bonus,500.00,USD,Q2 recognition award
+21005,Spot Bonus,750.00,USD,Project delivery bonus
+21013,Referral Bonus,1000.00,USD,Employee referral payout
+99999,Spot Bonus,300.00,USD,Bad row - worker does not exist
+21020,Spot Bonus,250.00,USD,Peer recognition

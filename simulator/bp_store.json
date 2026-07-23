@@ -1,0 +1,147 @@
+{
+  "bps": {
+    "home_contact_change": {
+      "id": "home_contact_change",
+      "name": "Home Contact Change for Global Modern Services",
+      "businessObject": "Global Modern Services",
+      "effectiveDate": "02/24/2026",
+      "timeZone": "GMT-08:00 Pacific Time (Los Angeles)",
+      "dueDate": "1 Day",
+      "orchestration": {
+        "appId": "surpkcahmbfc",
+        "refId": "RaaSINT001_kyqdeu",
+        "name": "INT_001",
+        "runAs": "Default",
+        "advance": true
+      },
+      "steps": [
+        {
+          "order": "a",
+          "iff": "",
+          "type": "Initiation",
+          "specify": "",
+          "optional": "No",
+          "group": "",
+          "runAs": "",
+          "dueDate": ""
+        },
+        {
+          "order": "aa",
+          "iff": "",
+          "type": "Service",
+          "specify": "Orchestration Service",
+          "optional": "No",
+          "group": "",
+          "runAs": "",
+          "dueDate": "",
+          "isOrch": true
+        },
+        {
+          "order": "b",
+          "iff": "Worker is Employee?",
+          "type": "Integration",
+          "specify": "",
+          "optional": "No",
+          "group": "",
+          "runAs": "ISU Cloud Commute for Worker",
+          "dueDate": ""
+        },
+        {
+          "order": "c",
+          "iff": "Triggered from International Assignment (US)?",
+          "type": "To Do",
+          "specify": "IA Worker Tax Elections",
+          "optional": "No",
+          "group": "Payroll Partner",
+          "runAs": "",
+          "dueDate": "2 Days"
+        },
+        {
+          "order": "c",
+          "iff": "Change in State / Ohio or Pennsylvania?",
+          "type": "To Do",
+          "specify": "Complete State Withholding Elections (3rd Party Integration)",
+          "optional": "No",
+          "group": "Employee As Self",
+          "runAs": "",
+          "dueDate": "2 Days"
+        },
+        {
+          "order": "c",
+          "iff": "Not Triggered from Onboarding?",
+          "type": "Action",
+          "specify": "Complete Province Tax Elections",
+          "optional": "No",
+          "group": "Employee As Self",
+          "runAs": "",
+          "dueDate": "2 Days"
+        }
+      ]
+    }
+  },
+  "logs": [
+    {
+      "date": "2026-06-29T11:43:48.700",
+      "level": "INFO",
+      "message": "ActiveUsers=JSON(4)",
+      "orchId": "INT_001",
+      "tenantAlias": "hack116_wcpdev1",
+      "bp": "Home Contact Change for Global Modern Services",
+      "ref": "Aggregate"
+    },
+    {
+      "date": "2026-06-29T11:43:48.700",
+      "level": "INFO",
+      "message": "",
+      "orchId": "INT_001",
+      "tenantAlias": "hack116_wcpdev1",
+      "bp": "Home Contact Change for Global Modern Services",
+      "ref": "Log"
+    },
+    {
+      "date": "2026-06-29T11:43:48.700",
+      "level": "INFO",
+      "message": "",
+      "orchId": "INT_001",
+      "tenantAlias": "hack116_wcpdev1",
+      "bp": "Home Contact Change for Global Modern Services",
+      "ref": "Log"
+    },
+    {
+      "date": "2026-06-29T11:43:48.700",
+      "level": "INFO",
+      "message": "",
+      "orchId": "INT_001",
+      "tenantAlias": "hack116_wcpdev1",
+      "bp": "Home Contact Change for Global Modern Services",
+      "ref": "Log"
+    },
+    {
+      "date": "2026-06-29T11:43:48.700",
+      "level": "INFO",
+      "message": "",
+      "orchId": "INT_001",
+      "tenantAlias": "hack116_wcpdev1",
+      "bp": "Home Contact Change for Global Modern Services",
+      "ref": "Log"
+    },
+    {
+      "date": "2026-06-29T11:43:48.700",
+      "level": "INFO",
+      "message": "iterating 4 item(s)",
+      "orchId": "INT_001",
+      "tenantAlias": "hack116_wcpdev1",
+      "bp": "Home Contact Change for Global Modern Services",
+      "ref": "Loop"
+    },
+    {
+      "date": "2026-06-29T11:43:48.700",
+      "level": "INFO",
+      "message": "text template created (application/json)",
+      "orchId": "INT_001",
+      "tenantAlias": "hack116_wcpdev1",
+      "bp": "Home Contact Change for Global Modern Services",
+      "ref": "CreateTextTemplate"
+    }
+  ]
+}

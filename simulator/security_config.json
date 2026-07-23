@@ -1,0 +1,43 @@
+{
+  "enforce": false,
+  "isus": {
+    "ISU_INT001": {
+      "password": "user",
+      "session_timeout": "0",
+      "exempt_from_password_expiration": true
+    }
+  },
+  "issgs": {
+    "ISSG_INT001": {
+      "type": "Integration System Security Group (Unconstrained)",
+      "members": [
+        "ISU_INT001"
+      ],
+      "active": {
+        "Worker Data: Workers": [
+          "Get"
+        ],
+        "Custom Report Web Services": [
+          "Get"
+        ],
+        "One-Time Payments": [
+          "Put"
+        ],
+        "Worker Data: Benefits Elections": [
+          "Get"
+        ],
+        "Payroll Inputs and Results": [
+          "Get"
+        ]
+      },
+      "pending": {}
+    }
+  },
+  "activations": [
+    {
+      "time": "2026-06-22 13:01:58",
+      "comment": "Granting ISU access to worker data",
+      "policies": 5
+    }
+  ]
+}

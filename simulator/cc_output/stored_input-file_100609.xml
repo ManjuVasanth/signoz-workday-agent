@@ -1,0 +1,188 @@
+{
+  "Report_Entry": [
+    {
+      "Employee_ID": "21001",
+      "PS_Concatenate": "Aarav Sharma",
+      "Manager_Name": "Sandeep Rao",
+      "PS_LRV_Manager_Email": "sandeep.rao@supertenant.demo",
+      "Manager_Phone_Primary": "+1-972-555-0101",
+      "Hire_Date": "2018-01-15"
+    },
+    {
+      "Employee_ID": "21002",
+      "PS_Concatenate": "Meera Iyer",
+      "Manager_Name": "Laura Bennett",
+      "PS_LRV_Manager_Email": "laura.bennett@supertenant.demo",
+      "Manager_Phone_Primary": "+1-469-555-0111",
+      "Hire_Date": "2019-02-15"
+    },
+    {
+      "Employee_ID": "21003",
+      "PS_Concatenate": "John Smith",
+      "Manager_Name": "Daniel Okoro",
+      "PS_LRV_Manager_Email": "daniel.okoro@supertenant.demo",
+      "Manager_Phone_Primary": "+1-214-555-0121",
+      "Hire_Date": "2020-03-15"
+    },
+    {
+      "Employee_ID": "21004",
+      "PS_Concatenate": "Priya Patel",
+      "Manager_Name": "Priscilla Vance",
+      "PS_LRV_Manager_Email": "priscilla.vance@supertenant.demo",
+      "Manager_Phone_Primary": "+1-972-555-0131",
+      "Hire_Date": "2021-04-15"
+    },
+    {
+      "Employee_ID": "21005",
+      "PS_Concatenate": "Carlos Gomez",
+      "Manager_Name": "Marco Bianchi",
+      "PS_LRV_Manager_Email": "marco.bianchi@supertenant.demo",
+      "Manager_Phone_Primary": "+1-469-555-0141",
+      "Hire_Date": "2022-05-15"
+    },
+    {
+      "Employee_ID": "21006",
+      "PS_Concatenate": "Wei Chen",
+      "Manager_Name": "Sandeep Rao",
+      "PS_LRV_Manager_Email": "sandeep.rao@supertenant.demo",
+      "Manager_Phone_Primary": "+1-972-555-0101",
+      "Hire_Date": "2023-06-15"
+    },
+    {
+      "Employee_ID": "21007",
+      "PS_Concatenate": "Sofia Rossi",
+      "Manager_Name": "Laura Bennett",
+      "PS_LRV_Manager_Email": "laura.bennett@supertenant.demo",
+      "Manager_Phone_Primary": "+1-469-555-0111",
+      "Hire_Date": "2024-07-15"
+    },
+    {
+      "Employee_ID": "21008",
+      "PS_Concatenate": "Liam Brown",
+      "Manager_Name": "Daniel Okoro",
+      "PS_LRV_Manager_Email": "daniel.okoro@supertenant.demo",
+      "Manager_Phone_Primary": "+1-214-555-0121",
+      "Hire_Date": "2018-08-15"
+    },
+    {
+      "Employee_ID": "21009",
+      "PS_Concatenate": "Anika Kapoor",
+      "Manager_Name": "Priscilla Vance",
+      "PS_LRV_Manager_Email": "priscilla.vance@supertenant.demo",
+      "Manager_Phone_Primary": "+1-972-555-0131",
+      "Hire_Date": "2019-09-15"
+    },
+    {
+      "Employee_ID": "21010",
+      "PS_Concatenate": "David Miller",
+      "Manager_Name": "Marco Bianchi",
+      "PS_LRV_Manager_Email": "marco.bianchi@supertenant.demo",
+      "Manager_Phone_Primary": "+1-469-555-0141",
+      "Hire_Date": "2020-01-15"
+    },
+    {
+      "Employee_ID": "21011",
+      "PS_Concatenate": "Fatima Khan",
+      "Manager_Name": "Sandeep Rao",
+      "PS_LRV_Manager_Email": "sandeep.rao@supertenant.demo",
+      "Manager_Phone_Primary": "+1-972-555-0101",
+      "Hire_Date": "2021-02-15"
+    },
+    {
+      "Employee_ID": "21012",
+      "PS_Concatenate": "Kenji Tanaka",
+      "Manager_Name": "Laura Bennett",
+      "PS_LRV_Manager_Email": "laura.bennett@supertenant.demo",
+      "Manager_Phone_Primary": "+1-469-555-0111",
+      "Hire_Date": "2022-03-15"
+    },
+    {
+      "Employee_ID": "21013",
+      "PS_Concatenate": "Olivia Davis",
+      "Manager_Name": "Daniel Okoro",
+      "PS_LRV_Manager_Email": "daniel.okoro@supertenant.demo",
+      "Manager_Phone_Primary": "+1-214-555-0121",
+      "Hire_Date": "2023-04-15"
+    },
+    {
+      "Employee_ID": "21014",
+      "PS_Concatenate": "Ravi Menon",
+      "Manager_Name": "Priscilla Vance",
+      "PS_LRV_Manager_Email": "priscilla.vance@supertenant.demo",
+      "Manager_Phone_Primary": "+1-972-555-0131",
+      "Hire_Date": "2024-05-15"
+    },
+    {
+      "Employee_ID": "21015",
+      "PS_Concatenate": "Emma Wilson",
+      "Manager_Name": "Marco Bianchi",
+      "PS_LRV_Manager_Email": "marco.bianchi@supertenant.demo",
+      "Manager_Phone_Primary": "+1-469-555-0141",
+      "Hire_Date": "2018-06-15"
+    },
+    {
+      "Employee_ID": "21016",
+      "PS_Concatenate": "Noah Garcia",
+      "Manager_Name": "Sandeep Rao",
+      "PS_LRV_Manager_Email": "sandeep.rao@supertenant.demo",
+      "Manager_Phone_Primary": "+1-972-555-0101",
+      "Hire_Date": "2019-07-15"
+    },
+    {
+      "Employee_ID": "21017",
+      "PS_Concatenate": "Isabella Moore",
+      "Manager_Name": "Laura Bennett",
+      "PS_LRV_Manager_Email": "laura.bennett@supertenant.demo",
+      "Manager_Phone_Primary": "+1-469-555-0111",
+      "Hire_Date": "2020-08-15"
+    },
+    {
+      "Employee_ID": "21018",
+      "PS_Concatenate": "Arjun Nair",
+      "Manager_Name": "Daniel Okoro",
+      "PS_LRV_Manager_Email": "daniel.okoro@supertenant.demo",
+      "Manager_Phone_Primary": "+1-214-555-0121",
+      "Hire_Date": "2021-09-15"
+    },
+    {
+      "Employee_ID": "21019",
+      "PS_Concatenate": "Grace Lee",
+      "Manager_Name": "Priscilla Vance",
+      "PS_LRV_Manager_Email": "priscilla.vance@supertenant.demo",
+      "Manager_Phone_Primary": "+1-972-555-0131",
+      "Hire_Date": "2022-01-15"
+    },
+    {
+      "Employee_ID": "21020",
+      "PS_Concatenate": "Mateo Lopez",
+      "Manager_Name": "Marco Bianchi",
+      "PS_LRV_Manager_Email": "marco.bianchi@supertenant.demo",
+      "Manager_Phone_Primary": "+1-469-555-0141",
+      "Hire_Date": "2023-02-15"
+    },
+    {
+      "Employee_ID": "21021",
+      "PS_Concatenate": "Hana Sato",
+      "Manager_Name": "Sandeep Rao",
+      "PS_LRV_Manager_Email": "sandeep.rao@supertenant.demo",
+      "Manager_Phone_Primary": "+1-972-555-0101",
+      "Hire_Date": "2024-03-15"
+    },
+    {
+      "Employee_ID": "21022",
+      "PS_Concatenate": "Lucas Martin",
+      "Manager_Name": "Laura Bennett",
+      "PS_LRV_Manager_Email": "laura.bennett@supertenant.demo",
+      "Manager_Phone_Primary": "+1-469-555-0111",
+      "Hire_Date": "2018-04-15"
+    },
+    {
+      "Employee_ID": "21023",
+      "PS_Concatenate": "Divya Reddy",
+      "Manager_Name": "Daniel Okoro",
+      "PS_LRV_Manager_Email": "daniel.okoro@supertenant.demo",
+      "Manager_Phone_Primary": "+1-214-555-0121",
+      "Hire_Date": "2019-05-15"
+    }
+  ]
+}

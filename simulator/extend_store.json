@@ -1,0 +1,68 @@
+{
+  "apps": {
+    "stocknotifications_svfbfp": {
+      "refId": "stocknotifications_svfbfp",
+      "name": "StockNotifications",
+      "company": "HackTeam116",
+      "orchAppId": "6f4026e444f4f3f37ac1d53d4a63a298",
+      "businessObjects": {
+        "StockData": {
+          "name": "StockData",
+          "label": "Stock Data",
+          "collectionName": "stockData",
+          "collectionLabel": "Stock Data",
+          "collectionDescription": "Description for Stock Data.",
+          "securityDomains": [
+            "StockDataSecurityDomain"
+          ],
+          "fields": [
+            {
+              "name": "stockTicker",
+              "label": "Stock Ticker",
+              "type": "TEXT",
+              "description": "",
+              "securityDomain": "StockDataSecurityDomain",
+              "decimals": 0,
+              "refId": false,
+              "displayName": true,
+              "purge": false,
+              "indexing": false,
+              "searching": true
+            },
+            {
+              "name": "currentPrice",
+              "label": "Current Price",
+              "type": "DECIMAL",
+              "description": "",
+              "securityDomain": "StockDataSecurityDomain",
+              "decimals": 2,
+              "refId": false,
+              "displayName": false,
+              "purge": false,
+              "indexing": false,
+              "searching": false
+            }
+          ]
+        }
+      },
+      "securityDomains": {
+        "StockDataSecurityDomain": {
+          "name": "StockDataSecurityDomain",
+          "label": "Stock Data Security Domain",
+          "pageSecurity": true,
+          "orchestrationSecurity": true
+        }
+      },
+      "cards": {
+        "stockCard": {
+          "name": "stockCard",
+          "icon": "Chart Bar Arrow",
+          "title": "My Stock",
+          "subtitle": "stock",
+          "bodyValue": "My Simple Card Body",
+          "indicators": []
+        }
+      }
+    }
+  }
+}

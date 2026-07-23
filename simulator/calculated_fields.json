@@ -1,0 +1,404 @@
+{
+  "Worker": [
+    {
+      "field_name": "P_Constant_Text",
+      "function": "Text Constant",
+      "value": "WICT_DEMO"
+    },
+    {
+      "field_name": "P_Org_Code",
+      "function": "Lookup Related Value",
+      "source": "Org",
+      "lookup": {
+        "Finance": "FIN",
+        "HR Operations": "HRO",
+        "IT Services": "ITS",
+        "Audit": "AUD",
+        "Legal": "LEG"
+      }
+    },
+    {
+      "field_name": "P_Display_Name",
+      "function": "Concatenate Text",
+      "parts": [
+        {
+          "field": "First_Name"
+        },
+        {
+          "text": " "
+        },
+        {
+          "field": "Last_Name"
+        },
+        {
+          "text": " ("
+        },
+        {
+          "field": "P_Org_Code"
+        },
+        {
+          "text": ")"
+        }
+      ]
+    },
+    {
+      "field_name": "P_Emp_ID_Suffix",
+      "function": "Substring Text",
+      "source": "Employee_ID",
+      "start": 3,
+      "length": 3
+    },
+    {
+      "field_name": "P_Name_Upper",
+      "function": "Format Text",
+      "template": "{Last_Name}, {First_Name}",
+      "case": "upper"
+    },
+    {
+      "field_name": "P_Status_Text",
+      "function": "Evaluate Expression",
+      "condition_field": "Active",
+      "equals": "1",
+      "then": "ACTIVE",
+      "else": "TERMINATED"
+    },
+    {
+      "field_name": "P_Is_Finance",
+      "function": "True/False Condition",
+      "condition_field": "Org",
+      "operator": "equals",
+      "value": "Finance"
+    },
+    {
+      "field_name": "P_Tenure_Years",
+      "function": "Date Difference",
+      "source": "Hire_Date",
+      "unit": "years"
+    },
+    {
+      "field_name": "P_Tenure_Award",
+      "function": "Arithmetic Calculation",
+      "operation": "multiply",
+      "operands": [
+        {
+          "field": "P_Tenure_Years"
+        },
+        {
+          "value": 100
+        }
+      ]
+    },
+    {
+      "field_name": "P_First_Anniversary",
+      "function": "Increment or Decrement Date",
+      "source": "Hire_Date",
+      "increment": {
+        "years": 1
+      }
+    },
+    {
+      "field_name": "P_Hire_Year_Start",
+      "function": "Build Date",
+      "year": {
+        "from_field": "Hire_Date",
+        "part": "year"
+      },
+      "month": 1,
+      "day": 1
+    },
+    {
+      "field_name": "P_Bonus_Count",
+      "function": "Count Related Instance",
+      "source": "Payments"
+    },
+    {
+      "field_name": "P_Bonus_Total",
+      "function": "Sum Related Instance",
+      "source": "Payments",
+      "value_field": "Amount"
+    },
+    {
+      "field_name": "P_Spot_Bonuses",
+      "function": "Extract Multi-Instance",
+      "source": "Payments",
+      "where": {
+        "field": "Type",
+        "equals": "Spot Bonus"
+      }
+    },
+    {
+      "field_name": "P_Spot_Bonus_Total",
+      "function": "Sum Related Instance",
+      "source": "P_Spot_Bonuses",
+      "value_field": "Amount"
+    },
+    {
+      "field_name": "P_Latest_Bonus_Amt",
+      "function": "Extract Single Instance",
+      "source": "Payments",
+      "sort_field": "Date",
+      "select": "last",
+      "return_field": "Amount"
+    },
+    {
+      "field_name": "CF_Tenure_Band",
+      "function": "Lookup Range Band",
+      "source": "P_Tenure_Years",
+      "bands": [
+        {
+          "min": 0,
+          "max": 2,
+          "value": "0-2 yrs (New)"
+        },
+        {
+          "min": 3,
+          "max": 5,
+          "value": "3-5 yrs (Mid)"
+        },
+        {
+          "min": 6,
+          "max": 99,
+          "value": "6+ yrs (Senior)"
+        }
+      ],
+      "default": "Unknown"
+    },
+    {
+      "field_name": "CF_Hire_Date_US",
+      "function": "Format Date",
+      "source": "Hire_Date",
+      "format": "MM/dd/yyyy"
+    },
+    {
+      "field_name": "CF_Salary_Formatted",
+      "function": "Format Number",
+      "source": "Base_Salary",
+      "decimals": 2,
+      "thousands": true,
+      "prefix": "$"
+    },
+    {
+      "field_name": "CF_Salary_INR",
+      "function": "Convert Currency",
+      "source": "Base_Salary",
+      "to": "INR",
+      "rates": {
+        "INR": 83.2,
+        "EUR": 0.92,
+        "GBP": 0.79
+      }
+    },
+    {
+      "field_name": "CF_Pay_Periods",
+      "function": "Numeric Constant",
+      "value": 26
+    },
+    {
+      "field_name": "CF_Review_Date",
+      "function": "Date Constant",
+      "value": "2026-12-31"
+    },
+    {
+      "field_name": "CF_LastName_Length",
+      "function": "Text Length",
+      "source": "Last_Name"
+    },
+    {
+      "field_name": "CF_Salary_Num",
+      "function": "Convert Text to Number",
+      "source": "Base_Salary"
+    },
+    {
+      "field_name": "CF_Benefit_Plans",
+      "function": "Aggregate Related Instances",
+      "source": "Benefits",
+      "value_field": "Plan",
+      "delimiter": ", "
+    },
+    {
+      "field_name": "CF_Org_Spanish",
+      "function": "Lookup Translated Value",
+      "source": "Org",
+      "translations": {
+        "Finance": "Finanzas",
+        "Legal": "Jur\u00eddico",
+        "IT Services": "Servicios de TI",
+        "Audit": "Auditor\u00eda",
+        "HR Operations": "Operaciones de RRHH"
+      }
+    },
+    {
+      "field_name": "PS_Concatenate",
+      "function": "Concatenate Text",
+      "parts": [
+        {
+          "field": "First_Name"
+        },
+        {
+          "text": " "
+        },
+        {
+          "field": "Last_Name"
+        }
+      ]
+    },
+    {
+      "field_name": "PS_Substring",
+      "function": "Substring Text",
+      "source": "PS_Concatenate",
+      "substring_type": "After a Delimiter",
+      "delimiter": "Single Space",
+      "direction": "Forward",
+      "trim": true
+    },
+    {
+      "field_name": "PS_Total_base_pay_per_month",
+      "function": "Arithmetic Calculation",
+      "operation": "divide",
+      "operands": [
+        {
+          "field": "Total_Base_Pay_Annualized"
+        },
+        {
+          "value": 12
+        }
+      ]
+    },
+    {
+      "field_name": "PS_Addition",
+      "function": "Arithmetic Calculation",
+      "operation": "add",
+      "operands": [
+        {
+          "field": "Total_Compensation"
+        },
+        {
+          "field": "Total_Base_Pay_Annualized"
+        }
+      ]
+    },
+    {
+      "field_name": "PS_Total_base_pay_INR",
+      "function": "Convert Currency",
+      "source": "Total_Base_Pay_Annualized",
+      "to": "INR",
+      "rates": {
+        "INR": 83.2,
+        "EUR": 0.92,
+        "GBP": 0.79
+      }
+    },
+    {
+      "field_name": "PS_LRV_Manager_Name",
+      "function": "Lookup Related Value",
+      "related": "Manager",
+      "return_field": "Name"
+    },
+    {
+      "field_name": "PS_LRV_Manager_Email",
+      "function": "Lookup Related Value",
+      "related": "Manager",
+      "return_field": "Email"
+    },
+    {
+      "field_name": "PS_ESI_Spouse_Name",
+      "function": "Extract Single Instance",
+      "source": "Dependents",
+      "operation_type": "Subset",
+      "where": {
+        "field": "Relationship",
+        "operator": "equals",
+        "equals": "Spouse"
+      },
+      "return_field": "Name"
+    },
+    {
+      "field_name": "PS_ESI_Spouse_Age",
+      "function": "Extract Single Instance",
+      "source": "Dependents",
+      "operation_type": "Subset",
+      "where": {
+        "field": "Relationship",
+        "operator": "equals",
+        "equals": "Spouse"
+      },
+      "return_field": "Age"
+    },
+    {
+      "field_name": "PS_EMI_Child_Names",
+      "function": "Extract Multi-Instance",
+      "source": "Dependents",
+      "operation_type": "Subset",
+      "where": {
+        "field": "Relationship",
+        "operator": "equals",
+        "equals": "Child"
+      },
+      "return_field": "Name",
+      "delimiter": ", "
+    },
+    {
+      "field_name": "PS_CRI_Dependents",
+      "function": "Count Related Instance",
+      "source": "Dependents"
+    },
+    {
+      "field_name": "PS_ARI_Dependent_Names",
+      "function": "Aggregate Related Instances",
+      "source": "Dependents",
+      "value_field": "Name",
+      "delimiter": ", "
+    },
+    {
+      "field_name": "CF_INT001_ManagerPhone",
+      "function": "Lookup Related Value",
+      "related": "Manager",
+      "return_field": "Manager_Phone_Primary"
+    },
+    {
+      "field_name": "CF_DependentsCount",
+      "function": "Count Related Instance",
+      "source": "Dependents"
+    },
+    {
+      "field_name": "CF_DependentRelationshipESI",
+      "function": "Extract Single Instance",
+      "source": "Dependents",
+      "operation_type": "Subset",
+      "where": {
+        "field": "Relationship",
+        "operator": "equals",
+        "equals": "Spouse"
+      },
+      "return_field": "Relationship"
+    },
+    {
+      "field_name": "CF_DependentChildCount",
+      "function": "Extract Multi-Instance",
+      "source": "Dependents",
+      "operation_type": "Subset",
+      "where": {
+        "field": "Relationship",
+        "operator": "equals",
+        "equals": "Child"
+      },
+      "return_field": "Name",
+      "delimiter": ", "
+    },
+    {
+      "field_name": "PCF_DependentChildCounts",
+      "function": "Count Related Instance",
+      "source": "CF_DependentChildCount"
+    },
+    {
+      "field_name": "PCF_DependentChildCounts",
+      "function": "Count Related Instance",
+      "source": "CF_DependentChildCount"
+    },
+    {
+      "field_name": "CF_DependentChildCounts",
+      "function": "Count Related Instance",
+      "source": "CF_DependentChildCount"
+    }
+  ]
+}

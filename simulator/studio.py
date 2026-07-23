@@ -1,0 +1,1869 @@
+"""
+studio.py - "Workday Studio" clone (Eclipse-style, browser-based).
+
+Open via the UI search bar ("Workday Studio") or http://127.0.0.1:8443/task/workday-studio
+
+What it mirrors from real Studio:
+  - Project Explorer (save/load assemblies)
+  - Palette with categories (In Transports, Components, Transform,
+    Out Transports, Logging & Eventing)
+  - Drag-and-drop assembly canvas (linear mediation pipeline)
+  - Properties panel per component
+  - Design / Source tabs (Source shows assembly XML)
+  - Tenant connection (ISU username/password, used when security
+    enforcement is ON)
+  - Run -> executes each step against the mock tenant and streams a
+    Studio-style console log
+"""
+
+import ast
+import base64
+import json
+import os
+import re
+import time
+
+from flask import request, Response
+
+from mock_workday_server import app
+from workday_ui import persist
+
+PROJ_FILE = "studio_projects.json"
+OUT_DIR = "cc_output"
+
+
+# ---------------------------------------------------------------------------
+# MVEL expression engine (like Studio's eval / route / @{...} interpolation)
+# Supports: vars.x / props.x / message.text, && || !, true/false/null,
+#           ternary a ? b : c, + - * / comparisons, and helper functions.
+# ---------------------------------------------------------------------------
+class AttrDict(dict):
+    def __getattr__(self, k):
+        try:
+            return self[k]
+        except KeyError:
+            raise AttributeError(k)
+
+    def __setattr__(self, k, v):
+        self[k] = v
+
+
+class _Empty:
+    """MVEL's 'empty' literal: matches null, '', 0, or 0-length collections."""
+    def _test(self, v):
+        if v is None or v == "" or v == 0:
+            return True
+        try:
+            return len(v) == 0
+        except TypeError:
+            return False
+
+
+EMPTY = _Empty()
+
+
+class _MvelReturn(Exception):
+    def __init__(self, value):
+        self.value = value
+
+
+def _java_concat(a, b):
+    """MVEL/Java semantics: 'x' + 5 -> 'x5'."""
+    if isinstance(a, str) or isinstance(b, str):
+        return str(a) + str(b)
+    return a + b
+
+
+def _coerce_eq(a, b):
+    """MVEL value-based equality with coercion: '123' == 123 is true."""
+    if isinstance(a, _Empty):
+        return a._test(b)
+    if isinstance(b, _Empty):
+        return b._test(a)
+    if a == b:
+        return True
+    try:
+        return str(a) == str(b)
+    except Exception:
+        return False
+
+
+def _contains(a, b):
+    """MVEL 'contains' operator: collection/string membership."""
+    try:
+        return b in a
+    except TypeError:
+        return False
+
+
+def _regex_match(a, pattern):
+    """MVEL '~=' operator: full regex match, like String.matches()."""
+    return re.fullmatch(pattern, str(a)) is not None
+
+
+def _null_safe(obj, name):
+    """MVEL null-safe navigation (.? / ?.)."""
+    if obj is None:
+        return None
+    try:
+        return getattr(obj, name)
+    except AttributeError:
+        return None
+
+
+JAVA_METHODS = [(".toUpperCase()", ".upper()"), (".toLowerCase()", ".lower()"),
+                (".trim()", ".strip()"), (".length()", ".__len__()"),
+                (".size()", ".__len__()"), (".startsWith(", ".startswith("),
+                (".endsWith(", ".endswith("), (".indexOf(", ".find(")]
+
+
+class _MvelRewriter(ast.NodeTransformer):
+    """AST pass: Java-style + concat, and coercing ==/!=."""
+    def visit_BinOp(self, node):
+        self.generic_visit(node)
+        if isinstance(node.op, ast.Add):
+            return ast.Call(func=ast.Name(id="_concat", ctx=ast.Load()),
+                            args=[node.left, node.right], keywords=[])
+        return node
+
+    def visit_Compare(self, node):
+        self.generic_visit(node)
+        if len(node.ops) == 1 and isinstance(node.ops[0], (ast.Eq, ast.NotEq)):
+            call = ast.Call(func=ast.Name(id="_eq", ctx=ast.Load()),
+                            args=[node.left, node.comparators[0]], keywords=[])
+            if isinstance(node.ops[0], ast.NotEq):
+                return ast.UnaryOp(op=ast.Not(), operand=call)
+            return call
+        return node
+
+
+def _translate_mvel(expr):
+    s = expr.strip()
+    # protect string literals from keyword/operator rewriting
+    _strings = []
+
+    def _mask(m):
+        _strings.append(m.group(0))
+        return f"__STR{len(_strings) - 1}__"
+
+    s = re.sub(r"'[^']*'|\"[^\"]*\"", _mask, s)
+    s = s.replace("&&", " and ").replace("||", " or ")
+    s = re.sub(r"(?<![!<>=])!(?!=)", " not ", s)
+    s = re.sub(r"\btrue\b", "True", s)
+    s = re.sub(r"\bfalse\b", "False", s)
+    s = re.sub(r"\b(?:null|nil)\b", "None", s)
+    s = re.sub(r"\bempty\b", "EMPTY", s)
+    s = re.sub(r"\bisdef\s+([\w.]+)", r'_isdef("\1")', s)
+    # null-safe navigation: a.?b and a?.b  (apply repeatedly for chains)
+    pat = re.compile(r"([\w\)\]]+)(?:\.\?|\?\.)(\w+)")
+    while pat.search(s):
+        s = pat.sub(r'_ns(\1, "\2")', s)
+    for java, py in JAVA_METHODS:                  # Java string methods
+        s = s.replace(java, py)
+    s = re.sub(                                    # 'a contains b' operator
+        r"([\w.,\[\]\'\"]+|\([^()]*\))\s+contains\s+([\w.,\[\]\'\"]+|\([^()]*\))",
+        r"_contains(\1, \2)", s)
+    s = re.sub(                                    # 'a ~= regex' operator
+        r"([\w.\[\]\'\"]+)\s*~=\s*([\w.\'\"]+)",
+        r"_rx(\1, \2)", s)
+    if "?" in s and ":" in s:                      # ternary (nested-in-else ok)
+        cond, _, rest = s.partition("?")
+        then, _, els = rest.partition(":")
+        s = f"(({then.strip()}) if ({cond.strip()}) else ({els.strip()}))"
+    # MVEL inline map ['k':v, ...] -> AttrDict (dot-accessible, per spec)
+    s = re.sub(r"\[([^\[\]]*?:[^\[\]]+?)\]", r"_attr({\1})", s)
+    # MVEL inline array {a, b, c} -> list
+    s = re.sub(r"\{([^{}:]*)\}", r"[\1]", s)
+    # projections: (expr in coll) -> _project('expr', coll)
+    s = re.sub(r"\(\s*([\w.]+)\s+in\s+([^()]+?)\s*\)",
+               r"_project('\1', \2)", s)
+    # restore protected string literals
+    s = re.sub(r"__STR(\d+)__", lambda m: _strings[int(m.group(1))], s)
+    return s
+
+
+def _mvel_helpers():
+    return {
+        "size": lambda x: len(x),
+        "upper": lambda s: str(s).upper(),
+        "lower": lambda s: str(s).lower(),
+        "substring": lambda s, a, b=None: str(s)[a:b],
+        "now": lambda: time.strftime("%Y%m%d_%H%M%S"),
+        "today": lambda: time.strftime("%Y-%m-%d"),
+        "sleep": lambda ms: (time.sleep(min(float(ms), 1000) / 1000.0)
+                             or f"slept {ms}ms"),
+    }
+
+
+def mvel_eval(expr, ctx):
+    def _isdef(path):
+        try:
+            mvel_eval(path, ctx)
+            return True
+        except Exception:
+            return False
+
+    def _project(prop, coll):
+        out = []
+        for it in coll:
+            ctx2 = dict(ctx)
+            extra = dict(it) if isinstance(it, dict) else {"item": it}
+            ctx2["vars"] = AttrDict({**ctx["vars"], **extra})
+            out.append(mvel_eval(prop, ctx2))
+        return out
+
+    def _noop(*a, **k):
+        return None
+
+    ORG_REF_IDS = {  # Integration IDs (View IDs): Organization_Reference_ID
+        "Finance":     "SUPERVISORY_ORGANIZATION-6-615",
+        "Engineering": "SUPERVISORY_ORGANIZATION-6-616",
+        "HR":          "SUPERVISORY_ORGANIZATION-6-617",
+        "Legal":       "SUPERVISORY_ORGANIZATION-6-618",
+        "Sales":       "SUPERVISORY_ORGANIZATION-6-619",
+    }
+
+    def _make_lp(ctx0):
+        """lp variable: attribute/key access to launch param values PLUS the
+        Studio helper methods lp.getdate / lp.gettext / lp.getreferenceData
+        seen in real assemblies (Launch Parameter types: text|date|reference).
+        """
+        base = AttrDict(ctx0.get("props", {}))
+        types = ctx0.get("lp_types", {})
+
+        def getdate(name):
+            return base.get(name)
+
+        def gettext(name):
+            return base.get(name)
+
+        def getreferencedata(name, ref_type="Organization_Reference_ID"):
+            val = base.get(name)
+            if val is None:
+                raise ValueError(f"launch parameter '{name}' not defined")
+            if "Reference_ID" in str(ref_type) or "WID" in str(ref_type):
+                return ORG_REF_IDS.get(val, val)
+            return val
+
+        base["getdate"] = getdate
+        base["gettext"] = gettext
+        base["getreferenceData"] = getreferencedata
+        base["getreferencedata"] = getreferencedata
+        base["_types"] = types
+        return base
+
+    def _get_extrapath(alias):
+        rep = ctx.get("report_aliases", {}).get(alias, alias)
+        return f"/ccx/service/customreport2/SUPER_TENANT/ISU_Demo/{rep}"
+
+    intsys = AttrDict({"reportService":
+                       AttrDict({"getExtrapath": _get_extrapath})})
+    ns = {**ctx.get("vars", {}), **ctx, **_mvel_helpers(),
+          "intsys": intsys, "getExtrapath": _get_extrapath,
+          "lp": _make_lp(ctx),
+          "_concat": _java_concat, "_eq": _coerce_eq, "_contains": _contains,
+          "_rx": _regex_match, "_ns": _null_safe, "_attr": AttrDict,
+          "EMPTY": EMPTY, "_isdef": _isdef, "_project": _project}
+    tree = ast.parse(_translate_mvel(expr), mode="eval")
+    tree = ast.fix_missing_locations(_MvelRewriter().visit(tree))
+    return eval(compile(tree, "<mvel>", "eval"),  # noqa: S307
+                {"__builtins__": {}}, ns)
+
+
+def _split_statements(script):
+    """Split on ; at depth 0, respecting quotes and {} blocks."""
+    stmts, cur, depth, q = [], "", 0, None
+    for ch in script:
+        if q:
+            cur += ch
+            if ch == q:
+                q = None
+        elif ch in "'\"":
+            q = ch
+            cur += ch
+        elif ch == "{":
+            depth += 1
+            cur += ch
+        elif ch == "}":
+            depth -= 1
+            cur += ch
+        elif ch == ";" and depth == 0:
+            if cur.strip():
+                stmts.append(cur.strip())
+            cur = ""
+        else:
+            cur += ch
+    if cur.strip():
+        stmts.append(cur.strip())
+    return stmts
+
+
+def _matched(s, start, op, cl):
+    """Index just past the matching close bracket for s[start] == op."""
+    depth, q = 0, None
+    for i in range(start, len(s)):
+        ch = s[i]
+        if q:
+            if ch == q:
+                q = None
+        elif ch in "'\"":
+            q = ch
+        elif ch == op:
+            depth += 1
+        elif ch == cl:
+            depth -= 1
+            if depth == 0:
+                return i
+    raise ValueError(f"Unbalanced {op}{cl} in MVEL block")
+
+
+ASSIGN_DOTTED = re.compile(r"^([A-Za-z_]\w*(?:\.\w+)+)\s*=(?!=)\s*(.+)$", re.S)
+ASSIGN_SUBSCRIPT = re.compile(
+    r"^([A-Za-z_]\w*(?:\.\w+)*)\s*\[\s*(['\"])(.+?)\2\s*\]\s*=(?!=)\s*(.+)$",
+    re.S)
+ASSIGN_BARE = re.compile(
+    r"^(?:(?:var|int|String|double|boolean)\s+)?([A-Za-z_]\w*)\s*=(?!=)\s*(.+)$",
+    re.S)
+LOOP_GUARD = 10000
+
+
+def _exec_stmt(stmt, ctx, lines):
+    """Execute one MVEL statement. Returns its value (last-value-out)."""
+    head = stmt.split("(", 1)[0].strip()
+
+    if head in ("foreach", "for") and "{" in stmt:
+        po = stmt.index("(")
+        pc = _matched(stmt, po, "(", ")")
+        var, _, coll_expr = stmt[po + 1:pc].partition(":")
+        bo = stmt.index("{", pc)
+        bc = _matched(stmt, bo, "{", "}")
+        body = stmt[bo + 1:bc]
+        coll = mvel_eval(coll_expr.strip(), ctx)
+        if isinstance(coll, (int, float)):          # foreach (x : 9) counts 1..9
+            coll = range(1, int(coll) + 1)
+        n, last = 0, None
+        for item in coll:
+            ctx["vars"][var.strip()] = item
+            last = _exec_block(body, ctx, lines, quiet=True)
+            n += 1
+            if n > LOOP_GUARD:
+                raise RuntimeError("foreach exceeded loop guard")
+        lines.append(f"foreach {var.strip()} : {n} iteration(s)")
+        return last
+
+    if head in ("while", "until") and "{" in stmt:
+        po = stmt.index("(")
+        pc = _matched(stmt, po, "(", ")")
+        cond = stmt[po + 1:pc]
+        bo = stmt.index("{", pc)
+        bc = _matched(stmt, bo, "{", "}")
+        body, n, last = stmt[bo + 1:bc], 0, None
+        def go():
+            v = bool(mvel_eval(cond, ctx))
+            return v if head == "while" else not v
+        while go():
+            last = _exec_block(body, ctx, lines, quiet=True)
+            n += 1
+            if n > LOOP_GUARD:
+                raise RuntimeError(f"{head} exceeded loop guard")
+        lines.append(f"{head} loop: {n} iteration(s)")
+        return last
+
+    if head == "if" and "{" in stmt:
+        s, i = stmt, 0
+        while i < len(s):
+            m = re.match(r"\s*(?:else\s+)?if\s*\(", s[i:])
+            if m:
+                po = i + m.end() - 1
+                pc = _matched(s, po, "(", ")")
+                bo = s.index("{", pc)
+                bc = _matched(s, bo, "{", "}")
+                if bool(mvel_eval(s[po + 1:pc], ctx)):
+                    return _exec_block(s[bo + 1:bc], ctx, lines, quiet=True)
+                i = bc + 1
+                continue
+            m = re.match(r"\s*else\s*\{", s[i:])
+            if m:
+                bo = i + m.end() - 1
+                bc = _matched(s, bo, "{", "}")
+                return _exec_block(s[bo + 1:bc], ctx, lines, quiet=True)
+            break
+        return None
+
+    if stmt.startswith("return"):
+        rest = stmt[6:].strip()
+        raise _MvelReturn(mvel_eval(rest, ctx) if rest else None)
+
+    m = ASSIGN_SUBSCRIPT.match(stmt)
+    if m:
+        cont, _, key, rhs = m.groups()
+        val = mvel_eval(rhs, ctx)
+        if cont in ctx:
+            obj = ctx[cont]
+        else:
+            obj = mvel_eval(cont, ctx)
+        obj[key] = val
+        lines.append(f"{cont}['{key}'] = {val!r}")
+        return val
+
+    m = ASSIGN_DOTTED.match(stmt)
+    if m:
+        path, rhs = m.group(1), m.group(2)
+        val = mvel_eval(rhs, ctx)
+        parts = path.split(".")
+        target = ctx[parts[0]]
+        for p in parts[1:-1]:
+            target = getattr(target, p)
+        setattr(target, parts[-1], val)
+        lines.append(f"{path} = {val!r}")
+        return val
+
+    m = ASSIGN_BARE.match(stmt)
+    if m and m.group(1) not in ctx:                  # bare var -> vars scope
+        name, rhs = m.group(1), m.group(2)
+        val = mvel_eval(rhs, ctx)
+        ctx["vars"][name] = val
+        lines.append(f"{name} = {val!r}")
+        return val
+
+    val = mvel_eval(stmt, ctx)
+    lines.append(f"{stmt} -> {val!r}")
+    return val
+
+
+def _exec_block(script, ctx, lines, quiet=False):
+    last = None
+    sink = [] if quiet else lines
+    for stmt in _split_statements(script):
+        last = _exec_stmt(stmt, ctx, sink)
+    return last
+
+
+def mvel_exec(script, ctx):
+    """Execute MVEL statements; 'last value out' per the MVEL spec.
+    Returns (log lines, returned value)."""
+    lines = []
+    try:
+        last = _exec_block(script, ctx, lines)
+    except _MvelReturn as r:
+        last = r.value
+        lines.append(f"return -> {last!r}")
+    return lines, last
+
+
+def interpolate(value, ctx):
+    """Resolve @{expr} orb-tags inside a component property (MVEL templating)."""
+    if not isinstance(value, str) or "@{" not in value:
+        return value
+    return re.sub(r"@\{(.+?)\}",
+                  lambda m: str(mvel_eval(m.group(1), ctx)), value)
+
+DEFAULT_XSLT = open("workers_to_psv.xsl").read() \
+    if os.path.exists("workers_to_psv.xsl") else "<!-- xslt here -->"
+
+GW_ENVELOPE = """<?xml version="1.0" encoding="UTF-8"?>
+<env:Envelope xmlns:env="http://schemas.xmlsoap.org/soap/envelope/"
+              xmlns:wd="urn:com.workday/bsvc">
+  <env:Body>
+    <wd:Get_Workers_Request wd:version="v42.0">
+      <wd:Response_Filter>
+        <wd:Page>{page}</wd:Page>
+        <wd:Count>{count}</wd:Count>
+      </wd:Response_Filter>
+    </wd:Get_Workers_Request>
+  </env:Body>
+</env:Envelope>"""
+
+
+def load_projects():
+    if os.path.exists(PROJ_FILE):
+        with open(PROJ_FILE) as f:
+            return json.load(f)
+    return {}
+
+
+PROJECTS = load_projects()
+
+
+# ---------------------------------------------------------------------------
+# Execution engine (the "ESB")
+# ---------------------------------------------------------------------------
+def run_assembly(assembly, isu, debug=False):
+    client = app.test_client()
+    headers = {}
+    if isu.get("user"):
+        token = base64.b64encode(
+            f"{isu['user']}:{isu.get('password','')}".encode()).decode()
+        headers["Authorization"] = f"Basic {token}"
+
+    doc = ""
+    log = []
+    outputs = []
+    snapshots = []          # Assembly Debug: state captured at each breakpoint
+
+    # MVEL context, like Studio: vars / props / message / parts
+    message = AttrDict(text="")
+    ctx = {"vars": AttrDict(),
+           "props": AttrDict({"integration_name": "StudioCloneAssembly",
+                              "tenant": "SUPER_TENANT"}),
+           "message": message, "parts": [message]}
+
+    hard_fail = {"v": False}
+    handler = {"idx": None, "fired": False, "pending": False}
+    for hi, hs in enumerate(assembly):
+        if hs.get("type") == "global_error_handler":
+            handler["idx"] = hi
+
+    def fail(name, detail):
+        hard_fail["v"] = True
+        handler["pending"] = True
+        ctx["vars"]["_lasterror"] = f"{name}: {detail}"
+        log.append({"step": name, "status": "FAILED", "detail": detail})
+
+    i = 0
+    iterations = 0
+    while i < len(assembly):
+        iterations += 1
+        if iterations > 100:
+            fail("Mediation", "Maximum iterations (100) exceeded - possible "
+                              "infinite retry loop. Check your Route: Loop "
+                              "Back condition.")
+            break
+        step = assembly[i]
+        jump = None
+        t = step.get("type")
+        ctx["message"]["text"] = doc
+        try:  # resolve @{...} in every string property first
+            p = {k: interpolate(v, ctx)
+                 for k, v in step.get("props", {}).items()}
+        except Exception as e:
+            fail(t, f"MVEL interpolation error: {e}")
+            break
+        t0 = time.time()
+
+        # ---- Assembly Debug: suspend at a breakpoint and snapshot state ----
+        if debug and step.get("bp"):
+            snapshots.append({
+                "index": i,
+                "title": step.get("props", {}).get("name")
+                         or step.get("props", {}).get("label")
+                         or t,
+                "type": t,
+                "content_type": "text/xml;charset=utf-8",
+                "length": len(doc or ""),
+                "message": (doc or "")[:8000],
+                "vars": {k: str(v) for k, v in dict(ctx["vars"]).items()},
+                "props": {k: str(v) for k, v in dict(ctx["props"]).items()},
+                "step_props": {k: str(v)[:200] for k, v in p.items()},
+            })
+
+        try:
+            if t == "launch":
+                log.append({"step": "Launch / Listener", "status": "OK",
+                            "detail": "Integration event started "
+                                      "(scheduled or manual launch)."})
+
+            elif t == "eval":
+                results, last = mvel_exec(p.get("script", ""), ctx)
+                detail = "; ".join(results) or "(empty script)"
+                if last is not None:
+                    detail += f"  [last value out: {last!r}]"
+                log.append({"step": "Eval (MVEL)", "status": "OK",
+                            "detail": detail})
+
+            elif t == "route":
+                cond = p.get("condition", "true")
+                ok = bool(mvel_eval(cond, ctx))
+                if ok:
+                    log.append({"step": "Route (MVEL)", "status": "OK",
+                                "detail": f"condition [{cond}] is true - "
+                                          f"continuing mediation."})
+                else:
+                    log.append({"step": "Route (MVEL)", "status": "OK",
+                                "detail": f"condition [{cond}] is false - "
+                                          f"message filtered, mediation "
+                                          f"stopped."})
+                    break
+
+            elif t == "workday_in":
+                lp = {}
+                lp_types = {}
+                for line in (p.get("launch_params") or "").splitlines():
+                    if "=" in line:
+                        k, _, v = line.partition("=")
+                        k = k.strip()
+                        ptype = "text"
+                        if ":" in k:          # Name:type=value
+                            k, _, ptype = k.partition(":")
+                            k, ptype = k.strip(), ptype.strip().lower()
+                        lp[k] = v.strip()
+                        lp_types[k] = ptype
+                        ctx["props"][k] = v.strip()
+                ctx["lp_types"] = lp_types
+                aliases = {}
+                for line in (p.get("report_services") or "").splitlines():
+                    if "=" in line:
+                        a, _, rep_n = line.partition("=")
+                        aliases[a.strip()] = rep_n.strip()
+                ctx["report_aliases"] = aliases
+                svc_lines = [s.strip() for s in
+                             (p.get("other_services") or "").splitlines()
+                             if s.strip()]
+                detail = ("Integration event received. Launch parameters -> "
+                          "props: " + (json.dumps(lp) if lp else "(none)"))
+                if aliases:
+                    detail += ("; report-service: " + ", ".join(
+                        f"'{a}' -> {r2} (Report Reference)"
+                        for a, r2 in aliases.items()))
+                if svc_lines:
+                    detail += "; services: " + ", ".join(svc_lines)
+                log.append({"step": f"workday-in: {p.get('service','')}",
+                            "status": "OK", "detail": detail})
+
+            elif t == "local_in":
+                fname = os.path.basename(p.get("filename", ""))
+                if not os.path.exists(fname):
+                    fail("local-in", f"File '{fname}' not found in the "
+                                     f"project folder.")
+                    break
+                with open(fname, encoding="utf-8") as f:
+                    doc = f.read()
+                log.append({"step": f"local-in: {fname}", "status": "OK",
+                            "detail": f"Read {len(doc)} bytes into the "
+                                      f"message."})
+
+            elif t == "wd_out_soap":
+                svc = p.get("service", "Human_Resources").strip()
+                op = p.get("operation", "Get_Workers").strip()
+                if op == "Get_Workers":              # PagedGet pattern
+                    count = int(p.get("count", 10) or 10)
+                    r = client.post(
+                        f"/ccx/service/SUPER_TENANT/{svc}/v42.0",
+                        data=GW_ENVELOPE.format(page=1, count=count),
+                        content_type="text/xml", headers=headers)
+                    body = r.get_data(as_text=True)
+                    if r.status_code != 200:
+                        fail(f"workday-out-soap: {op}",
+                             body.split("<faultstring>")[1].split("</")[0]
+                             if "<faultstring>" in body
+                             else f"HTTP {r.status_code}")
+                        break
+                    total_pages = int(re.search(
+                        r"<wd:Total_Pages>(\d+)", body).group(1))
+                    workers = re.findall(r"<wd:Worker>.*?</wd:Worker>",
+                                         body, re.S)
+                    for page in range(2, total_pages + 1):
+                        r = client.post(
+                            f"/ccx/service/SUPER_TENANT/{svc}/v42.0",
+                            data=GW_ENVELOPE.format(page=page, count=count),
+                            content_type="text/xml", headers=headers)
+                        workers += re.findall(r"<wd:Worker>.*?</wd:Worker>",
+                                              r.get_data(as_text=True), re.S)
+                    doc = ('<wd:Response_Data xmlns:wd="urn:com.workday/bsvc"'
+                           '>\n' + "\n".join(workers) + "\n</wd:Response_Data>")
+                    ctx["vars"]["totalWorkers"] = len(workers)
+                    ctx["vars"]["totalPages"] = total_pages
+                    log.append({"step": f"workday-out-soap: {op} (PagedGet)",
+                                "status": "OK",
+                                "detail": f"{total_pages} page(s), Count="
+                                          f"{count}, {len(workers)} workers."})
+                else:
+                    send_msg = (p.get("send_message", "false").lower()
+                                == "true")
+                    payload = doc if send_msg else (
+                        '<?xml version="1.0"?><env:Envelope xmlns:env='
+                        '"http://schemas.xmlsoap.org/soap/envelope/" '
+                        'xmlns:wd="urn:com.workday/bsvc"><env:Body>'
+                        f'<wd:{op}_Request/></env:Body></env:Envelope>')
+                    r = client.post(f"/ccx/service/SUPER_TENANT/{svc}/v42.0",
+                                    data=payload, content_type="text/xml",
+                                    headers=headers)
+                    body = r.get_data(as_text=True)
+                    if r.status_code != 200:
+                        ctx["vars"]["lastStatus"] = "FAILED"
+                        fail(f"workday-out-soap: {op}",
+                             body.split("<faultstring>")[1].split("</")[0]
+                             if "<faultstring>" in body
+                             else f"HTTP {r.status_code}")
+                        break
+                    ctx["vars"]["lastStatus"] = "OK"
+                    doc = body
+                    log.append({"step": f"workday-out-soap: {op}",
+                                "status": "OK",
+                                "detail": f"{svc} -> HTTP 200 "
+                                          f"({len(body)} bytes)."})
+
+            elif t == "wd_out_rest":
+                rep = p.get("report", "Worker_Report")
+                fmt = p.get("format", "xml")
+                # report-service alias from workday-in Services resolves here
+                rep = ctx.get("report_aliases", {}).get(rep, rep)
+                xp = (p.get("extra_path") or "").strip()
+                if xp:                      # Extra Path wins (already @{}-interpolated)
+                    url = xp + ("" if "?" in xp else f"?format={fmt}")
+                else:
+                    url = (f"/ccx/service/customreport2/SUPER_TENANT/"
+                           f"ISU_Demo/{rep}?format={fmt}")
+                r = client.get(url, headers=headers)
+                body = r.get_data(as_text=True)
+                if r.status_code != 200:
+                    fail(f"workday-out-rest: {rep}", body[:200])
+                    break
+                doc = body
+                log.append({"step": f"workday-out-rest: {rep}", "status": "OK",
+                            "detail": f"GET RaaS ({fmt}) -> "
+                                      f"{len(body)} bytes."})
+
+            elif t == "global_error_handler":
+                if not handler["fired"]:
+                    log.append({"step": f"global-error-handler: "
+                                        f"{p.get('name','')}",
+                                "status": "OK",
+                                "detail": "Registered. Handler steps are "
+                                          "skipped in normal flow (no error "
+                                          "so far)."})
+                    i = len(assembly)
+                    continue
+                log.append({"step": f"global-error-handler: "
+                                    f"{p.get('name','')}",
+                            "status": "OK",
+                            "detail": "Error caught - executing handler "
+                                      "lane (SendError flow)."})
+
+            elif t == "log_error":
+                msg = interpolate(p.get("message",
+                    "Error: @{vars._lasterror}"), ctx)
+                log.append({"step": "log-error", "status": "OK",
+                            "detail": msg})
+
+            elif t == "send_error":
+                msg = interpolate(p.get("message",
+                    "Integration failed: @{vars._lasterror}"), ctx)
+                markf = str(p.get("mark_failed", "true")).lower() != "false"
+                log.append({"step": "send-error",
+                            "status": "FAILED" if markf else "OK",
+                            "detail": f"SendError -> integration event "
+                                      f"message: {msg}"})
+                if markf:
+                    hard_fail["v"] = True
+
+            elif t == "mediation":
+                ctx["vars"]["_mediation"] = p.get("name", "Mediation")
+                log.append({"step": f"mediation: {p.get('name','')}",
+                            "status": "OK",
+                            "detail": "Mediation started (steps below run "
+                                      "inside it; SendError lane = "
+                                      f"on_error {p.get('on_error','stop')})."})
+
+            elif t == "copy":
+                var = p.get("var", "savedDoc")
+                if (p.get("mode", "save").lower()) == "restore":
+                    doc = str(ctx["vars"].get(var, ""))
+                    log.append({"step": "copy (restore)", "status": "OK",
+                                "detail": f"message restored from "
+                                          f"vars.{var} ({len(doc)} bytes)."})
+                else:
+                    ctx["vars"][var] = doc
+                    log.append({"step": "copy (save)", "status": "OK",
+                                "detail": f"message copied to vars.{var} "
+                                          f"({len(doc)} bytes)."})
+
+            elif t == "store":
+                os.makedirs(OUT_DIR, exist_ok=True)
+                fname = f"stored_{p.get('label','doc')}_" \
+                        f"{time.strftime('%H%M%S')}.xml"
+                with open(os.path.join(OUT_DIR, fname), "w") as f:
+                    f.write(doc)
+                outputs.append(fname)
+                log.append({"step": "store", "status": "OK",
+                            "detail": f"Document stored on the integration "
+                                      f"event -> cc_output/{fname}"})
+
+            elif t == "csv_to_xml":
+                delim = p.get("delimiter", "|") or "|"
+                lines = [l for l in doc.splitlines() if l.strip()]
+                if not lines:
+                    fail("csv-to-xml", "Message is empty or not CSV.")
+                    break
+                hdr = [re.sub(r"[^\w]", "_", h) for h in
+                       lines[0].split(delim)]
+                rows_xml = []
+                for line in lines[1:]:
+                    cells = line.split(delim)
+                    rows_xml.append("  <Row>" + "".join(
+                        f"<{h}>{c}</{h}>" for h, c in zip(hdr, cells))
+                        + "</Row>")
+                doc = "<Rows>\n" + "\n".join(rows_xml) + "\n</Rows>"
+                log.append({"step": "csv-to-xml", "status": "OK",
+                            "detail": f"{len(rows_xml)} row(s) converted "
+                                      f"to XML."})
+
+            elif t == "async_med":
+                cond = p.get("condition", "true")
+                if not bool(mvel_eval(cond, ctx)):
+                    log.append({"step": "async-mediation", "status": "OK",
+                                "detail": f"execute-steps-when [{cond}] is "
+                                          f"false - skipped."})
+                else:
+                    proj = p.get("project", "")
+                    sub = PROJECTS.get(proj)
+                    if not sub:
+                        fail("async-mediation",
+                             f"Saved project '{proj}' not found.")
+                        break
+                    import threading
+
+                    def _bg(assembly=sub, creds=dict(isu)):
+                        res = run_assembly(assembly, creds)
+                        ASYNC_RESULTS.append({"project": proj,
+                                              "result": res["result"],
+                                              "steps": len(res["log"])})
+                    threading.Thread(target=_bg, daemon=True).start()
+                    log.append({"step": "async-mediation", "status": "OK",
+                                "detail": f"Dispatched '{proj}' on a parallel "
+                                          f"branch; main mediation continues "
+                                          f"without waiting. Results: "
+                                          f"/studio/async-results"})
+
+            elif t == "pim":
+                sev = p.get("severity", "Info")
+                msg_txt = p.get("message", "")
+                log.append({"step": f"put-integration-message [{sev}]",
+                            "status": "FAILED" if sev == "Error" else "OK",
+                            "detail": msg_txt})
+                if sev == "Error":
+                    break
+
+            elif t == "splitter":
+                el = p.get("element", "Worker")
+                agg_i = next((k for k in range(i + 1, len(assembly))
+                              if assembly[k].get("type") == "aggregator"), None)
+                if agg_i is None:
+                    fail("Splitter", "No matching Aggregator found "
+                                     "downstream in the assembly.")
+                    break
+                parts_found = re.findall(
+                    rf"<(?:\w+:)?{el}\b.*?</(?:\w+:)?{el}>", doc, re.S)
+                # carry the root element's xmlns declarations into each part
+                root_m = re.search(r"<[\w:]+\s([^>]*)>", doc)
+                ns_decls = " ".join(re.findall(r'xmlns:?\w*="[^"]*"',
+                                               root_m.group(1))) \
+                    if root_m else ""
+                if ns_decls:
+                    parts_found = [re.sub(r"^(<[\w:]+)",
+                                          r"\1 " + ns_decls, pt, count=1)
+                                   for pt in parts_found]
+                sub = assembly[i + 1:agg_i]
+                results, sub_fail = [], None
+                for part in parts_found:
+                    pdoc = part
+                    for ss in sub:
+                        st_ = ss.get("type")
+                        ctx["message"]["text"] = pdoc
+                        sp = {k2: interpolate(v2, ctx)
+                              for k2, v2 in ss.get("props", {}).items()}
+                        if st_ == "xslt":
+                            from lxml import etree
+                            style = sp.get("stylesheet") or DEFAULT_XSLT
+                            x = etree.XSLT(etree.fromstring(style.encode()))
+                            pdoc = str(x(etree.fromstring(pdoc.encode())))
+                        elif st_ == "eval":
+                            mvel_exec(sp.get("script", ""), ctx)
+                        elif st_ == "wd_out_soap":
+                            svc2 = sp.get("service", "Compensation")
+                            r = client.post(
+                                f"/ccx/service/SUPER_TENANT/{svc2}/v42.0",
+                                data=pdoc, content_type="text/xml",
+                                headers=headers)
+                            if r.status_code != 200:
+                                b2 = r.get_data(as_text=True)
+                                sub_fail = (b2.split("<faultstring>")[1]
+                                            .split("</")[0]
+                                            if "<faultstring>" in b2
+                                            else f"HTTP {r.status_code}")
+                        elif st_ == "post_ws":
+                            path = sp.get("path",
+                                "/ccx/service/SUPER_TENANT/Compensation/v42.0")
+                            r = client.post(path, data=pdoc,
+                                            content_type="text/xml",
+                                            headers=headers)
+                            if r.status_code != 200:
+                                b2 = r.get_data(as_text=True)
+                                sub_fail = (b2.split("<faultstring>")[1]
+                                            .split("</")[0]
+                                            if "<faultstring>" in b2
+                                            else f"HTTP {r.status_code}")
+                        elif st_ == "log":
+                            pass            # per-part logging stays quiet
+                        else:
+                            sub_fail = (f"Component '{st_}' not supported "
+                                        f"inside a split")
+                    results.append(pdoc)
+                wrap = assembly[agg_i].get("props", {}).get("wrapper",
+                                                            "Aggregated")
+                doc = (f"<{wrap}>\n" + "\n".join(results) + f"\n</{wrap}>"
+                       if wrap else "\n".join(results))
+                detail = (f"Split into {len(parts_found)} <{el}> part(s); "
+                          f"ran {len(sub)} sub-step(s) per part; "
+                          f"aggregated {len(results)} result(s).")
+                if sub_fail:
+                    detail += f" Last sub-step error: {sub_fail}"
+                log.append({"step": f"Splitter/Aggregator", "status":
+                            "FAILED" if sub_fail else "OK", "detail": detail})
+                jump = agg_i + 1
+
+            elif t == "aggregator":
+                log.append({"step": "Aggregator", "status": "OK",
+                            "detail": "No upstream Splitter - pass-through."})
+
+            elif t == "route_back":
+                cond = p.get("condition", "false")
+                back = int(p.get("steps_back", 1) or 1)
+                if bool(mvel_eval(cond, ctx)):
+                    jump = max(0, i - back)
+                    log.append({"step": "Route: Loop Back (MVEL)",
+                                "status": "OK",
+                                "detail": f"condition [{cond}] is true - "
+                                          f"looping back {back} step(s) "
+                                          f"(retry)."})
+                else:
+                    log.append({"step": "Route: Loop Back (MVEL)",
+                                "status": "OK",
+                                "detail": f"condition [{cond}] is false - "
+                                          f"continuing forward."})
+
+            elif t == "get_workers":
+                count = int(p.get("count", 10) or 10)
+                r = client.post("/ccx/service/SUPER_TENANT/Human_Resources/v42.0",
+                                data=GW_ENVELOPE.format(page=1, count=count),
+                                content_type="text/xml", headers=headers)
+                body = r.get_data(as_text=True)
+                if r.status_code != 200:
+                    fault = body.split("<faultstring>")[1].split("</")[0] \
+                        if "<faultstring>" in body else f"HTTP {r.status_code}"
+                    fail("Call Workday Web Service: Get_Workers", fault)
+                    break
+                total_pages = int(re.search(
+                    r"<wd:Total_Pages>(\d+)", body).group(1))
+                workers = re.findall(r"<wd:Worker>.*?</wd:Worker>", body, re.S)
+                for page in range(2, total_pages + 1):
+                    r = client.post(
+                        "/ccx/service/SUPER_TENANT/Human_Resources/v42.0",
+                        data=GW_ENVELOPE.format(page=page, count=count),
+                        content_type="text/xml", headers=headers)
+                    workers += re.findall(r"<wd:Worker>.*?</wd:Worker>",
+                                          r.get_data(as_text=True), re.S)
+                doc = ('<wd:Response_Data xmlns:wd="urn:com.workday/bsvc">\n'
+                       + "\n".join(workers) + "\n</wd:Response_Data>")
+                ctx["vars"]["totalWorkers"] = len(workers)
+                ctx["vars"]["totalPages"] = total_pages
+                log.append({"step": "Call Workday Web Service: Get_Workers",
+                            "status": "OK",
+                            "detail": f"Paginated {total_pages} page(s) "
+                                      f"(Count={count}), aggregated "
+                                      f"{len(workers)} workers. Set "
+                                      f"vars.totalWorkers, vars.totalPages. "
+                                      f"[{int((time.time()-t0)*1000)} ms]"})
+
+            elif t in ("get_benefits", "get_payroll"):
+                op = ("Get_Benefit_Enrollments" if t == "get_benefits"
+                      else "Get_Payroll_Results")
+                svc = ("Benefits_Administration" if t == "get_benefits"
+                       else "Payroll")
+                env_xml = (f'<?xml version="1.0"?><env:Envelope xmlns:env='
+                           f'"http://schemas.xmlsoap.org/soap/envelope/" '
+                           f'xmlns:wd="urn:com.workday/bsvc"><env:Body>'
+                           f'<wd:{op}_Request/></env:Body></env:Envelope>')
+                r = client.post(f"/ccx/service/SUPER_TENANT/{svc}/v42.0",
+                                data=env_xml, content_type="text/xml",
+                                headers=headers)
+                body = r.get_data(as_text=True)
+                if r.status_code != 200:
+                    fail(f"Call Workday Web Service: {op}",
+                         body.split("<faultstring>")[1].split("</")[0]
+                         if "<faultstring>" in body else f"HTTP {r.status_code}")
+                    break
+                doc = body
+                log.append({"step": f"Call Workday Web Service: {op}",
+                            "status": "OK",
+                            "detail": f"Fetched {len(body)} bytes from "
+                                      f"{svc} service."})
+
+            elif t == "raas":
+                rep = p.get("report", "Worker_Report")
+                fmt = p.get("format", "xml")
+                r = client.get(f"/ccx/service/customreport2/SUPER_TENANT/"
+                               f"ISU_Demo/{rep}?format={fmt}", headers=headers)
+                body = r.get_data(as_text=True)
+                if r.status_code != 200:
+                    fail(f"RaaS Reader: {rep}",
+                         body.split("<faultstring>")[1].split("</")[0]
+                         if "<faultstring>" in body else body[:200])
+                    break
+                doc = body
+                ctx["vars"]["reportBytes"] = len(body)
+                log.append({"step": f"RaaS Reader: {rep}", "status": "OK",
+                            "detail": f"Fetched report as {fmt.upper()} "
+                                      f"({len(body)} bytes). Set "
+                                      f"vars.reportBytes."})
+
+            elif t == "xslt":
+                from lxml import etree
+                style = p.get("stylesheet") or DEFAULT_XSLT
+                xslt = etree.XSLT(etree.fromstring(style.encode()))
+                doc = str(xslt(etree.fromstring(doc.encode())))
+                log.append({"step": "Transform: XSLT", "status": "OK",
+                            "detail": f"Stylesheet applied, output "
+                                      f"{len(doc)} bytes."})
+
+            elif t == "write_file":
+                os.makedirs(OUT_DIR, exist_ok=True)
+                fname = os.path.basename(p.get("filename")
+                                         or "studio_output.txt")
+                with open(os.path.join(OUT_DIR, fname), "w") as f:
+                    f.write(doc)
+                outputs.append(fname)
+                log.append({"step": "Out Transport: Write File", "status": "OK",
+                            "detail": f"Wrote {len(doc)} bytes -> "
+                                      f"cc_output/{fname}"})
+
+            elif t == "post_ws":
+                path = p.get("path",
+                             "/ccx/service/SUPER_TENANT/Compensation/v42.0")
+                on_error = (p.get("on_error", "stop") or "stop").strip().lower()
+                r = client.post(path, data=doc, content_type="text/xml",
+                                headers=headers)
+                body = r.get_data(as_text=True)
+                if r.status_code != 200:
+                    fault = (body.split("<faultstring>")[1].split("</")[0]
+                             if "<faultstring>" in body
+                             else f"HTTP {r.status_code}")
+                    ctx["vars"]["lastStatus"] = "FAILED"
+                    ctx["vars"]["lastError"] = fault
+                    if on_error == "continue":
+                        log.append({"step": "Submit Workday Web Service",
+                                    "status": "FAILED",
+                                    "detail": f"{fault} - on-error handler: "
+                                              f"continuing mediation (set "
+                                              f"vars.lastStatus, "
+                                              f"vars.lastError)."})
+                    else:
+                        fail("Submit Workday Web Service", fault)
+                        break
+                else:
+                    ctx["vars"]["lastStatus"] = "OK"
+                    ctx["vars"]["lastError"] = ""
+                    log.append({"step": "Submit Workday Web Service",
+                                "status": "OK",
+                                "detail": f"POST {path} -> HTTP 200."})
+
+            elif t == "log":
+                preview = (doc[:400] + " ...") if len(doc) > 400 else doc
+                log.append({"step": f"Console Log: {p.get('label','message')}",
+                            "status": "OK",
+                            "detail": preview or "(document is empty)"})
+
+            else:
+                fail(t or "unknown", "Unknown component type.")
+                break
+
+        except Exception as e:  # surface as a Studio-style failure
+            fail(t, f"{type(e).__name__}: {e}")
+            if handler["idx"] is not None and not handler["fired"]:
+                handler["fired"] = True
+                handler["pending"] = False
+                i = handler["idx"]
+                continue
+            break
+
+        if (handler["pending"] and handler["idx"] is not None
+                and not handler["fired"]):
+            # a step reported FAILED -> divert to the global error handler
+            handler["fired"] = True
+            handler["pending"] = False
+            i = handler["idx"]
+            continue
+        handler["pending"] = False
+        i = jump if jump is not None else i + 1
+
+    # If a failure broke the main loop and a global-error-handler exists,
+    # execute the handler lane now (Studio's SendError semantics).
+    if (hard_fail["v"] and handler["idx"] is not None
+            and not handler["fired"]):
+        handler["fired"] = True
+        for hstep in assembly[handler["idx"]:]:
+            ht = hstep.get("type")
+            hp = hstep.get("props", {})
+            try:
+                if ht == "global_error_handler":
+                    log.append({"step": f"global-error-handler: "
+                                        f"{hp.get('name','')}",
+                                "status": "OK",
+                                "detail": "Error caught - executing handler "
+                                          "lane (SendError flow)."})
+                elif ht == "log_error":
+                    log.append({"step": "log-error", "status": "OK",
+                                "detail": interpolate(hp.get("message",
+                                    "Error: @{vars._lasterror}"), ctx)})
+                elif ht == "send_error":
+                    msg = interpolate(hp.get("message",
+                        "Integration failed: @{vars._lasterror}"), ctx)
+                    markf = str(hp.get("mark_failed",
+                                       "true")).lower() != "false"
+                    log.append({"step": "send-error",
+                                "status": "FAILED" if markf else "OK",
+                                "detail": f"SendError -> integration event "
+                                          f"message: {msg}"})
+            except Exception as he:
+                log.append({"step": f"error-handler:{ht}",
+                            "status": "FAILED", "detail": str(he)})
+
+    if ctx["vars"]:
+        log.append({"step": "Variables (vars)", "status": "OK",
+                    "detail": json.dumps(dict(ctx["vars"]))})
+    return {"log": log, "outputs": outputs, "snapshots": snapshots,
+            "result": "Completed with Errors" if hard_fail["v"]
+                      else "Completed"}
+
+
+ASYNC_RESULTS = []
+
+
+@app.route("/studio/async-results")
+def studio_async_results():
+    return Response(json.dumps(ASYNC_RESULTS, indent=2),
+                    mimetype="application/json")
+
+
+@app.route("/studio/run", methods=["POST"])
+def studio_run():
+    data = request.get_json(force=True)
+    out = run_assembly(data.get("assembly", []), data.get("isu", {}),
+                       debug=bool(data.get("debug")))
+    return Response(json.dumps(out), mimetype="application/json")
+
+
+@app.route("/studio/save", methods=["POST"])
+def studio_save():
+    data = request.get_json(force=True)
+    name = data.get("name", "").strip()
+    if not name:
+        return Response('{"error":"name required"}', status=400,
+                        mimetype="application/json")
+    PROJECTS[name] = data.get("assembly", [])
+    persist(PROJ_FILE, PROJECTS)
+    return Response(json.dumps({"ok": True, "projects": list(PROJECTS)}),
+                    mimetype="application/json")
+
+
+@app.route("/studio/projects")
+def studio_projects():
+    return Response(json.dumps(PROJECTS), mimetype="application/json")
+
+
+# ---------------------------------------------------------------------------
+# The IDE page
+# ---------------------------------------------------------------------------
+STUDIO_HTML = r"""<!doctype html><html><head><meta charset="utf-8">
+<title>Workday Studio (clone) - SUPER_TENANT</title>
+<style>
+* { box-sizing:border-box; margin:0; font-family:'Segoe UI',Tahoma,sans-serif; }
+body { background:#ECECEC; font-size:13px; color:#222; height:100vh;
+       display:flex; flex-direction:column; overflow:hidden; }
+.menubar { background:#F5F5F5; border-bottom:1px solid #C8C8C8;
+           padding:4px 10px; color:#333; }
+.menubar span { margin-right:16px; cursor:default; }
+.toolbar { background:#EFEFEF; border-bottom:1px solid #C8C8C8; padding:5px 10px;
+           display:flex; align-items:center; gap:10px; }
+.toolbar button { border:1px solid #B5B5B5; background:#FAFAFA; padding:4px 12px;
+                  cursor:pointer; border-radius:3px; }
+.toolbar button:hover { background:#E2EEF9; }
+.run { color:#0a7d0a; font-weight:700; }
+.dbg { color:#1f6fb2; font-weight:700; }
+/* breakpoint dot + debug current-step highlight (Assembly Debug) */
+.bpdot { position:absolute; top:-6px; left:-6px; width:13px; height:13px;
+         border-radius:50%; background:#D24A43; border:2px solid #fff;
+         box-shadow:0 0 0 1px #9c2f2a; z-index:5; }
+.dbgnow { outline:3px solid #29A329 !important;
+          box-shadow:0 0 8px rgba(41,163,41,.55); }
+.adbar { display:flex; align-items:center; gap:8px; padding:4px 8px;
+         background:#EAF4EA; border-top:1px solid #B9D3B9; font-size:12px; }
+.adbar button { border:1px solid #9CBF9C; background:#fff; border-radius:3px;
+                padding:3px 10px; cursor:pointer; }
+.adbar .lbl { font-weight:700; color:#1f6fb2; }
+.adgrid { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:8px;
+          font-size:11.5px; }
+.adgrid .box { background:#fff; border:1px solid #cdd6de; border-radius:4px;
+               padding:8px; overflow:auto; max-height:200px; }
+.adgrid .box h4 { margin:0 0 4px; font-size:11px; color:#555;
+                  text-transform:uppercase; letter-spacing:.3px; }
+.adgrid pre { margin:0; white-space:pre-wrap; word-break:break-word;
+              font-family:Consolas,monospace; }
+.toolbar input { border:1px solid #B5B5B5; padding:3px 6px; width:120px; }
+.main { flex:1; display:flex; min-height:0; }
+.panel { background:#FFF; border:1px solid #B9B9B9; margin:4px;
+         display:flex; flex-direction:column; min-height:0; }
+.ptitle { background:linear-gradient(#FDFDFD,#D9E4F1); border-bottom:1px solid
+          #B9B9B9; padding:4px 8px; font-weight:600; font-size:12px; }
+.left { width:230px; display:flex; flex-direction:column; }
+.left .panel { flex:1; }
+.scroll { overflow:auto; flex:1; }
+.cat { background:#E8EEF7; border-top:1px solid #CCD6E4; border-bottom:1px solid
+       #CCD6E4; padding:3px 8px; font-weight:600; font-size:12px;
+       cursor:pointer; }
+.pi { padding:4px 8px 4px 22px; cursor:grab; border-bottom:1px dotted #EEE; }
+.pi:hover { background:#E2EEF9; }
+.proj { padding:4px 10px; cursor:pointer; }
+.proj:hover { background:#E2EEF9; }
+.center { flex:1; display:flex; flex-direction:column; min-width:0; }
+.tabs { display:flex; gap:2px; padding:4px 6px 0; }
+.tab { background:#D9D9D9; border:1px solid #B9B9B9; border-bottom:none;
+       padding:4px 14px; cursor:pointer; border-radius:4px 4px 0 0; }
+.tab.active { background:#FFF; font-weight:600; }
+.canvaswrap { flex:1; background:#FFF; border:1px solid #B9B9B9; margin:0 4px;
+              overflow:auto; position:relative;
+              background-image:radial-gradient(#E3E3E3 1px, transparent 1px);
+              background-size:18px 18px; }
+.canvas { padding:24px; min-height:100%; }
+.flow { display:flex; flex-wrap:wrap; align-items:flex-start; gap:0;
+  padding:10px; }
+.tbox { border:1px solid #9AA7B4; background:linear-gradient(#FFFFFF,#EFF3F7);
+  border-radius:3px; box-shadow:1px 2px 3px rgba(0,0,0,.18); min-width:150px;
+  margin:14px 0; cursor:pointer; position:relative; }
+.tbox.sel, .mbox.sel { outline:2px solid #F0A01E; }
+.tbox .tt { padding:6px 22px 6px 8px; font-weight:600; font-size:12.5px;
+  white-space:nowrap; display:flex; align-items:center; gap:6px; }
+.tico { width:17px; height:17px; border-radius:3px; display:inline-flex;
+  align-items:center; justify-content:center; font-size:10px; color:#fff;
+  font-weight:700; flex:none; }
+.mbox { border:1px solid #9AA7B4; background:#FDFDFD; border-radius:2px;
+  box-shadow:1px 2px 4px rgba(0,0,0,.2); margin:6px 0; min-width:190px;
+  cursor:pointer; position:relative; }
+.mbox .mt { padding:4px 22px 4px 8px; font-weight:600; font-size:12.5px;
+  border-bottom:1px solid #D7DEE5; background:linear-gradient(#FFF,#F0F4F8);
+  display:flex; align-items:center; gap:6px; }
+.msteps { display:flex; gap:4px; padding:8px 10px; align-items:flex-start; }
+.mstep { text-align:center; font-size:10px; color:#333; width:62px;
+  cursor:pointer; padding:3px 1px; border:1px solid transparent;
+  border-radius:3px; position:relative; }
+.mstep.sel { border-color:#F0A01E; background:#FFF7E6; }
+.mstep .ic { width:26px; height:22px; margin:0 auto 2px; border-radius:3px;
+  display:flex; align-items:center; justify-content:center; color:#fff;
+  font-size:9px; font-weight:700; }
+.mstep .sarr { position:absolute; right:-5px; top:8px; color:#888;
+  font-size:10px; }
+.merr { border-top:1px solid #D7DEE5; padding:3px 8px; font-size:11px;
+  color:#555; background:#F7F9FB; display:flex; gap:5px; align-items:center; }
+.conn { align-self:center; color:#777; font-size:17px; padding:0 3px;
+  margin-top:14px; }
+.del { position:absolute; right:5px; top:3px; color:#A33; cursor:pointer;
+  font-weight:700; font-size:12px; }
+.arrow { text-align:center; color:#5B84B1; font-size:18px; line-height:20px; }
+.dropzone { border:2px dashed #AAB; color:#99A; text-align:center; padding:14px;
+            width:300px; margin:8px auto; border-radius:6px; }
+.right { width:280px; }
+.props label { display:block; font-weight:600; margin:8px 0 3px; font-size:12px; }
+.props input, .props select, .props textarea { width:100%; border:1px solid
+       #B5B5B5; padding:4px 6px; font-family:Consolas,monospace; font-size:12px; }
+.console { height:190px; }
+.console .scroll { font-family:Consolas,monospace; font-size:12px;
+                   background:#FFFFFF; padding:6px 10px; }
+.ok { color:#0a7d0a; } .fail { color:#B71C1C; font-weight:600; }
+.src { font-family:Consolas,monospace; font-size:12px; white-space:pre;
+       padding:12px; }
+a { color:#1A6BB5; }
+</style></head><body>
+
+<div class="menubar"><span>File</span><span>Edit</span><span>Navigate</span>
+<span>Search</span><span>Project</span><span>Workday</span><span>Run</span>
+<span>Window</span><span>Help</span></div>
+
+<div class="toolbar">
+  <button class="run" onclick="runAsm()">&#9654; Run</button>
+  <button class="dbg" onclick="debugAsm()">&#128027; Debug</button>
+  <button onclick="saveProj()">&#128190; Save</button>
+  <button onclick="clearAsm()">&#10006; Clear</button>
+  <span style="margin-left:14px">Tenant: <b>SUPER_TENANT</b> (localhost:8443)</span>
+  <span style="margin-left:10px">ISU:</span>
+  <input id="isuU" placeholder="username (if security ON)">
+  <input id="isuP" placeholder="password" type="password">
+</div>
+
+<div class="main">
+  <div class="left">
+    <div class="panel" style="flex:0 0 30%">
+      <div class="ptitle">Project Explorer</div>
+      <div class="scroll" id="projList"></div>
+    </div>
+    <div class="panel">
+      <div class="ptitle">Palette</div>
+      <div class="scroll" id="palette"></div>
+    </div>
+  </div>
+
+  <div class="center">
+    <div class="tabs">
+      <div class="tab active" id="tabD" onclick="showTab('d')">Design</div>
+      <div class="tab" id="tabS" onclick="showTab('s')">Source</div>
+      <div class="tab" id="tabM" onclick="showTab('m')">MVEL</div>
+    </div>
+    <div class="canvaswrap" id="designView">
+      <div class="canvas" id="canvas"
+           ondragover="event.preventDefault()" ondrop="dropNew(event)"></div>
+    </div>
+    <div class="canvaswrap" id="sourceView" style="display:none">
+      <div class="src" id="srcView"></div>
+    </div>
+    <div class="canvaswrap" id="mvelView" style="display:none">
+      <div style="display:flex;gap:10px;height:100%;padding:8px;box-sizing:border-box">
+        <div style="flex:1.1;display:flex;flex-direction:column">
+          <textarea id="mvelScript" spellcheck="false" style="flex:1;
+            font-family:Consolas,monospace;font-size:12px;
+            border:1px solid #c8d2da;border-radius:4px;padding:8px;
+            resize:none"></textarea>
+          <button onclick="evalMvel()" style="margin-top:6px;background:#0875e1;
+            color:#fff;border:0;border-radius:4px;padding:8px 18px;
+            cursor:pointer;align-self:flex-start">Evaluate (Ctrl+Enter)</button>
+        </div>
+        <pre id="mvelOut" style="flex:1;background:#1e1e1e;color:#9cdcfe;
+          margin:0;padding:10px;border-radius:4px;font-size:12px;
+          overflow:auto;white-space:pre-wrap">Context: props
+(period_end_date, log), vars (totalWorkers=23, people[]), message.text.
+
+Same engine that runs eval / route / async conditions / @{...}
+in your assemblies - practice here, paste into components.</pre>
+        <div style="flex:0.9;overflow:auto;background:#fff;
+          border:1px solid #d6dde4;border-radius:4px;padding:8px;
+          font-size:11.5px" id="mvelRef"></div>
+      </div>
+    </div>
+    <div class="panel console">
+      <div class="ptitle">Console - Integration Events</div>
+      <div class="scroll" id="console">Ready. Drag components from the
+        Palette, then press Run. &nbsp;Tip: right-click any component to
+        <b>Toggle Assembly Breakpoint</b> (&#128308; red dot), then press
+        <b>Debug</b> to suspend and inspect the message at each breakpoint.</div>
+    </div>
+  </div>
+
+  <div class="right panel">
+    <div class="ptitle">Properties</div>
+    <div class="scroll props" id="props">Select a component on the canvas.</div>
+  </div>
+</div>
+
+<script>
+const PALETTE = [
+ ["In Transports", [["workday_in","workday-in"],
+    ["local_in","local-in (read file)"]]],
+ ["Out Transports", [
+    ["wd_out_soap","workday-out-soap"],
+    ["wd_out_rest","workday-out-rest"],
+    ["write_file","write"]]],
+ ["Components", [
+    ["mediation","mediation (container)"],
+    ["copy","copy"],
+    ["store","store"],
+    ["splitter","splitter"],
+    ["aggregator","aggregator"],
+    ["csv_to_xml","csv-to-xml"],
+    ["async_med","async-mediation"],
+    ["eval","eval (MVEL)"],
+    ["route","route"]]],
+ ["Transform", [["xslt","xslt"]]],
+ ["Logging & Eventing", [
+    ["log","log"],
+    ["pim","put-integration-message (PIM)"]]],
+ ["Error Handlers", [
+    ["global_error_handler","global-error-handler"],
+    ["log_error","log-error"],
+    ["send_error","send-error"],
+    ["route_back","route (loop back / retry)"]]],
+ ["Validation", []],
+];
+const LEGACY_TITLES = {launch:"Launch / Listener",
+  get_workers:"Call Workday Web Service: Get_Workers",
+  get_benefits:"Get_Benefit_Enrollments", get_payroll:"Get_Payroll_Results",
+  raas:"RaaS Reader", post_ws:"Submit Workday Web Service"};
+
+const SCHEMAS = {
+ launch:    {},
+ workday_in:{service:["Integration Service","Custom Studio Integration"],
+   launch_params:["Launch Parameters: Name=value or Name:type=value per line (types: text | date | reference)",
+                  "period_end_date=2026-06-30\nlog=true","area"],
+   report_services:["Services: report-service entries (Alias=ReportName per line, like the Alias / Report Reference grid)",
+                  "CallReport=Worker_Report","area"],
+   other_services:["Services: other (one per line: attribute-map-service, delivery-service, retrieval-service, listener-service, sequence-generator-service, transaction-log-service)",
+                  "sequence-generator-service","area"]},
+ local_in:  {filename:["File to read (from the project folder)","payroll_inputs.csv"]},
+ wd_out_soap:{service:["Workday service (Human_Resources | Compensation | Benefits_Administration | Payroll)","Human_Resources"],
+   operation:["Operation","Get_Workers"],
+   count:["PagedGet page size (Get_Workers only)","10"],
+   send_message:["Send current message as request body? (true | false)","false"]},
+ wd_out_rest:{report:["RaaS report (or a report-service Alias from workday-in)","Worker_Report"],
+   format:["Format (xml | json)","xml"],
+   extra_path:["Extra Path (e.g. @{intsys.reportService.getExtrapath('CallReport')})",""]},
+ global_error_handler: {name:["Handler name (Step ID)","global-error-handler"]},
+ log_error: {message:["Error log message (supports @{...})",
+   "Error in @{props.integration_name}: @{vars._lasterror}"]},
+ send_error: {message:["Error notification message (supports @{...})",
+   "Integration failed: @{vars._lasterror}"],
+   mark_failed:["Mark integration event Failed (true|false)","true"]},
+ mediation: {name:["Mediation name (Step ID)","ProcessData"],
+   on_error:["On error: stop | continue (SendError lane)","stop"]},
+ copy:      {mode:["save | restore","save"],
+   var:["Variable name","savedDoc"]},
+ store:     {label:["Store label (saved on the integration event)","input-file"]},
+ csv_to_xml:{delimiter:["Delimiter","|"]},
+ async_med: {project:["Saved project to run asynchronously",""],
+   condition:["execute-steps-when (MVEL)","true"]},
+ pim:       {severity:["Severity (Info | Warning | Error)","Info"],
+   message:["Message (supports @{})","Processed @{vars.totalWorkers} workers"]},
+ eval:      {script:["MVEL script (;-separated statements)",
+   "vars.runStamp = now();\nvars.fileTag = vars.totalWorkers > 20 ? 'FULL' : 'PARTIAL';",
+   "area"]},
+ route:     {condition:["MVEL condition (false stops the mediation)",
+   "vars.totalWorkers > 0"]},
+ splitter:  {element:["Element local name to split on","Worker"]},
+ aggregator:{wrapper:["Wrapper root element (blank = join as text)","Aggregated"]},
+ route_back:{condition:["MVEL condition (true loops back = retry)",
+   "vars.lastStatus == 'FAILED' && vars.retryCount < 3"],
+   steps_back:["Steps to jump back","2"]},
+ get_workers:{count:["Page size (Response_Filter Count)","10"]},
+ get_benefits:{},
+ get_payroll:{},
+ raas:      {report:["Report name","Worker_Report"],
+             format:["Format (xml|json)","xml"]},
+ xslt:      {stylesheet:["Stylesheet (XSLT)", __DEFAULT_XSLT__, "area"]},
+ write_file:{filename:["Output filename","studio_output.psv"]},
+ post_ws:   {path:["Endpoint path",
+                   "/ccx/service/SUPER_TENANT/Compensation/v42.0"],
+             on_error:["On error (stop | continue)","stop"]},
+ log:       {label:["Label","document preview"]},
+};
+const TITLES = Object.assign({}, LEGACY_TITLES, Object.fromEntries(PALETTE.flatMap(c=>c[1])));
+
+let asm = [{type:"workday_in", props:{service:"Custom Studio Integration", launch_params:"period_end_date=2026-06-30"}}];
+let sel = -1;
+let dbg = {cur:-1, snaps:[], pos:0};   // Assembly Debug session state
+
+function buildPalette(){
+  const el = document.getElementById('palette');
+  el.innerHTML = PALETTE.map(([cat,items]) =>
+    `<div class="cat">&#9656; ${cat} (${items.length})</div>` +
+    items.map(([t,n]) =>
+      `<div class="pi" draggable="true"
+            ondragstart="event.dataTransfer.setData('t','${t}')">&#9646; ${n}</div>`
+    ).join('')).join('');
+}
+function dropNew(e){
+  const t = e.dataTransfer.getData('t');
+  if (!t) return;
+  const props = {};
+  for (const k in SCHEMAS[t]) props[k] = SCHEMAS[t][k][1];
+  asm.push({type:t, props});
+  sel = asm.length - 1;
+  render();
+}
+function render(){
+  const c = document.getElementById('canvas');
+  // Studio-authentic: transports & flow components are standalone boxes;
+  // consecutive mediation steps render INSIDE a mediation container with
+  // small step icons (like Eval / Xslt / Log strips in real assemblies).
+  const STEPS = {eval:["MVEL","#C77B2F"], xslt:["XSLT","#7B4FA6"],
+    log:["LOG","#4A7DB5"], pim:["PIM","#4A7DB5"], copy:["CPY","#5E8C61"],
+    store:["STO","#B08C2A"], csv_to_xml:["CSV","#5E8C61"]};
+  const TICONS = {workday_in:["W>","#2E6DA4"], local_in:["IN","#5E8C61"],
+    wd_out_soap:["WS","#2E6DA4"], wd_out_rest:["WR","#2E6DA4"],
+    write_file:["WR","#5E8C61"], splitter:["SPL","#B08C2A"],
+    aggregator:["AGG","#B08C2A"], route:["RT","#7B4FA6"],
+    route_back:["ERR","#A33"], global_error_handler:["GEH","#A33"],
+    log_error:["LGE","#A33"], send_error:["SDE","#A33"], async_med:["ASY","#2E6DA4"],
+    launch:["W>","#2E6DA4"], get_workers:["WS","#2E6DA4"],
+    get_benefits:["WS","#2E6DA4"], get_payroll:["WS","#2E6DA4"],
+    raas:["WR","#2E6DA4"], post_ws:["WS","#2E6DA4"]};
+  let html = '<div class="flow">', i = 0, first = true;
+  function conn(){ return first ? '' : '<div class="conn">&#10142;</div>'; }
+  while (i < asm.length) {
+    const s = asm[i];
+    if (s.type === 'mediation' ||
+        (STEPS[s.type] && true)) {
+      // open a mediation container (explicit marker or implicit group)
+      const explicit = s.type === 'mediation';
+      const name = explicit ? (s.props.name || 'Mediation') : 'Mediation';
+      const onerr = explicit ? (s.props.on_error || 'stop') : 'stop';
+      const hdrIdx = i;
+      let steps = [], j = explicit ? i + 1 : i;
+      while (j < asm.length && STEPS[asm[j].type]) { steps.push(j); j++; }
+      html += conn() + `<div class="mbox ${sel===hdrIdx&&explicit?'sel':''} ${explicit&&dbg.cur===hdrIdx?'dbgnow':''}"
+        ${explicit?`onclick="select(${hdrIdx})" oncontextmenu="return toggleBp(event,${hdrIdx})"`:''}>
+        ${explicit&&s.bp?'<span class="bpdot" title="Assembly Breakpoint"></span>':''}
+        ${explicit?`<span class="del" onclick="del(event,${hdrIdx})">x</span>`:''}
+        <div class="mt"><span class="tico" style="background:#2E6DA4">M</span>
+          ${name}</div>
+        <div class="msteps">` +
+        (steps.length ? steps.map((k,n) => {
+          const st2 = asm[k], [lab,col] = STEPS[st2.type];
+          return `<div class="mstep ${sel===k?'sel':''} ${dbg.cur===k?'dbgnow':''}"
+            onclick="event.stopPropagation();select(${k})"
+            oncontextmenu="return toggleBp(event,${k})">
+            ${st2.bp?'<span class="bpdot" title="Assembly Breakpoint"></span>':''}
+            <span class="del" onclick="del(event,${k})">x</span>
+            <div class="ic" style="background:${col}">${lab}</div>
+            ${TITLES[st2.type]||st2.type}
+            ${n<steps.length-1?'<span class="sarr">&#8594;</span>':''}</div>`;
+        }).join('') : '<div style="font-size:11px;color:#999;padding:4px">\
+          (drop eval / xslt / log / copy / store / csv-to-xml / PIM here)</div>')
+        + `</div><div class="merr">&#9881; SendError &mdash; on_error: ${onerr}
+        </div></div>`;
+      i = explicit ? Math.max(j, i + 1) : j;
+      first = false;
+      continue;
+    }
+    // standalone transport / flow component box
+    const [lab, col] = TICONS[s.type] || ["C","#5B84B1"];
+    const pv = Object.entries(s.props).map(([k,v]) =>
+      k==='stylesheet' ? 'stylesheet: (xslt)'
+      : k + ': ' + String(v).slice(0,42)).join(' | ');
+    html += conn() + `<div class="tbox ${i===sel?'sel':''} ${dbg.cur===i?'dbgnow':''}"
+      onclick="select(${i})" oncontextmenu="return toggleBp(event,${i})">
+      ${s.bp?'<span class="bpdot" title="Assembly Breakpoint"></span>':''}
+      ${i>0?`<span class="del" onclick="del(event,${i})">x</span>`:''}
+      <div class="tt"><span class="tico" style="background:${col}">${lab}</span>
+        ${TITLES[s.type]||s.type}</div>
+      <div style="padding:0 8px 6px;font-size:10.5px;color:#666;max-width:260px">
+        ${pv||'&nbsp;'}</div></div>`;
+    i++; first = false;
+  }
+  html += '<div class="conn">&#10142;</div>' +
+    '<div class="tbox" style="border-style:dashed;color:#999"><div class="tt">' +
+    'drop a component here</div></div></div>';
+  c.innerHTML = html;
+  renderProps(); renderSrc();
+}
+function select(i){ sel = i; render(); }
+function del(e,i){ e.stopPropagation(); asm.splice(i,1); sel=-1; render(); }
+function renderProps(){
+  const el = document.getElementById('props');
+  if (sel < 0 || !asm[sel]) { el.innerHTML = 'Select a component.'; return; }
+  const s = asm[sel], sch = SCHEMAS[s.type];
+  el.innerHTML = `<div style="font-weight:700;margin-bottom:6px">
+    ${TITLES[s.type]}</div>` + Object.entries(sch).map(([k,[lab,def,kind]]) =>
+    `<label>${lab}</label>` + (kind==='area'
+      ? `<textarea rows="12" onchange="setP('${k}',this.value)">${s.props[k]||''}</textarea>`
+      : `<input value="${(s.props[k]||'').toString().replace(/"/g,'&quot;')}"
+           onchange="setP('${k}',this.value)">`)).join('')
+    || '<div style="color:#888">No properties.</div>';
+}
+function setP(k,v){ asm[sel].props[k]=v; render(); }
+function renderSrc(){
+  document.getElementById('srcView').textContent =
+`<assembly xmlns="urn:com.workday/esb" id="StudioCloneAssembly">
+  <mediation name="pipeline">
+` + asm.map(s => `    <${s.type}${Object.entries(s.props).map(([k,v]) =>
+      k==='stylesheet' ? '' : ` ${k}="${v}"`).join('')}/>`).join('\n') +
+`
+  </mediation>
+</assembly>`;
+}
+function showTab(t){
+  document.getElementById('designView').style.display = t==='d'?'':'none';
+  document.getElementById('sourceView').style.display = t==='s'?'':'none';
+  document.getElementById('mvelView').style.display = t==='m'?'':'none';
+  document.getElementById('tabD').classList.toggle('active', t==='d');
+  document.getElementById('tabS').classList.toggle('active', t==='s');
+  document.getElementById('tabM').classList.toggle('active', t==='m');
+}
+const MVEL_TUTORIAL = `// MVEL 2.0 scratchpad (same engine as eval/route/@{...})
+count = 0;
+foreach (name : ['Jim', 'Bob', 'Smith']) { count = count + 1 };
+if (count > 2) { vars.size = 'BIG' } else { vars.size = 'small' };
+vars.coerced = ('123' == 123);
+vars.hasBob  = (['Jim','Bob'] contains 'Bob');
+vars.regexOk = ('21001' ~= '[0-9]+');
+vars.safe    = vars.?notThere;
+vars.names   = (name in vars.people);
+'Done: ' + count + ' people, size=' + vars.size`;
+const MVEL_REF_ROWS = [
+ ["Property","props.period_end_date"],
+ ["Last value out","a = 10; a * 2"],
+ ["Coercion","'123' == 123"],
+ ["empty / null / nil","'' == empty"],
+ ["List / map / array","['a','b'] ['k':'v'] {1,2,3}"],
+ ["foreach","foreach (x : 5) { s = s + x }"],
+ ["if / else","if (n > 2) { ... } else { ... }"],
+ ["while / until","while (n < 3) { n = n + 1 }"],
+ ["Ternary","n > 0 ? 'Yes' : 'No'"],
+ ["contains","list contains 'Bob'"],
+ ["Regex ~=","'21001' ~= '[0-9]+'"],
+ ["Null-safe","vars.?maybeMissing"],
+ ["Projection","(name in vars.people)"],
+ ["String methods","'x'.toUpperCase() .length()"],
+ ["Helpers","now() today() size() isdef x"],
+ ["Interpolation","@{vars.totalWorkers} workers"]];
+function initMvelTab(){
+  document.getElementById('mvelScript').value = MVEL_TUTORIAL;
+  document.getElementById('mvelRef').innerHTML =
+    '<b>Syntax reference</b><table style="border-collapse:collapse;width:100%">' +
+    MVEL_REF_ROWS.map(r=>`<tr><td style="border-bottom:1px solid #eef2f5;
+      padding:3px 6px">${r[0]}</td><td style="border-bottom:1px solid #eef2f5;
+      padding:3px 6px"><code>${r[1].replace(/</g,'&lt;')}</code></td></tr>`).join('') +
+    '</table>';
+  document.getElementById('mvelScript').addEventListener('keydown', e=>{
+    if (e.ctrlKey && e.key === 'Enter') evalMvel();
+  });
+}
+async function evalMvel(){
+  const out = document.getElementById('mvelOut');
+  out.textContent = 'Evaluating...';
+  const r = await fetch('/studio/mvel-eval', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({script: document.getElementById('mvelScript').value})});
+  const d = await r.json();
+  out.textContent = d.error ? ('MVEL error: ' + d.error)
+    : d.lines.join('\n') + '\n\n>>> last value out: ' + d.last +
+      '\n\n--- vars after run ---\n' + JSON.stringify(d.vars, null, 2);
+}
+initMvelTab();
+function renderRunLog(d){
+  return d.log.map(s =>
+    `<div><span class="${s.status==='OK'?'ok':'fail'}">[${s.status}]</span>
+     <b>${s.step}</b> - ${String(s.detail).replace(/</g,'&lt;')}</div>`).join('') +
+    `<div style="margin-top:6px"><b>${d.result}</b>` +
+    ((d.outputs&&d.outputs.length) ? ' - output: ' + d.outputs.map(f =>
+       `<a href="/cc-output/${f}" target="_blank">${f}</a>`).join(', ') : '') +
+    '</div>';
+}
+async function runAsm(){
+  dbg.cur = -1; render();
+  const con = document.getElementById('console');
+  con.innerHTML = 'Launching integration event...';
+  const r = await fetch('/studio/run', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({assembly: asm,
+      isu:{user:document.getElementById('isuU').value,
+           password:document.getElementById('isuP').value}})});
+  const d = await r.json();
+  con.innerHTML = renderRunLog(d);
+}
+
+// ----- Assembly Debug: breakpoints + step-through -----
+function toggleBp(e, i){
+  e.preventDefault(); e.stopPropagation();
+  asm[i].bp = !asm[i].bp;
+  render();
+  return false;
+}
+async function debugAsm(){
+  dbg.cur = -1;
+  const con = document.getElementById('console');
+  con.innerHTML = 'Debug Integration: launching (Java Slave Debug attaching)...';
+  const r = await fetch('/studio/run', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({assembly: asm, debug:true,
+      isu:{user:document.getElementById('isuU').value,
+           password:document.getElementById('isuP').value}})});
+  const d = await r.json();
+  dbg.snaps = d.snapshots || [];
+  dbg.full = d;
+  if (!dbg.snaps.length){
+    dbg.cur = -1; render();
+    con.innerHTML = '<div style="padding:6px;color:#a06000">No breakpoints set. '
+      + 'Right-click a component &rarr; <b>Toggle Assembly Breakpoint</b> (red dot), '
+      + 'then press Debug.</div>' + renderRunLog(d);
+    return;
+  }
+  dbg.pos = 0; showSnapshot();
+}
+function showSnapshot(){
+  const s = dbg.snaps[dbg.pos];
+  dbg.cur = s.index; render();
+  const esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const last = dbg.pos >= dbg.snaps.length-1;
+  document.getElementById('console').innerHTML =
+    `<div class="adbar">
+       <span class="lbl">&#128027; Assembly Debug</span>
+       <span>Suspended ${dbg.pos+1}/${dbg.snaps.length} at <b>${esc(s.title)}</b> (${esc(s.type)})</span>
+       <button onclick="resumeDbg()">${last?'&#9654; Resume &rarr; Finish':'&#9654; Resume (F8)'}</button>
+       <button onclick="stopDbg()">&#9632; Terminate</button>
+       <span style="margin-left:auto">Content-Type: ${esc(s.content_type)} &nbsp;|&nbsp; Length: ${s.length}</span>
+     </div>
+     <div class="adgrid">
+       <div class="box" style="grid-column:1/3"><h4>Message Root Part</h4>
+         <pre>${esc(s.message)||'(no message document at this step yet)'}</pre></div>
+       <div class="box"><h4>Variables (vars)</h4><pre>${esc(JSON.stringify(s.vars,null,2))}</pre></div>
+       <div class="box"><h4>Properties (props)</h4><pre>${esc(JSON.stringify(s.props,null,2))}</pre></div>
+     </div>`;
+}
+function resumeDbg(){
+  if (dbg.pos < dbg.snaps.length-1){ dbg.pos++; showSnapshot(); return; }
+  dbg.cur = -1; render();
+  document.getElementById('console').innerHTML =
+    '<div style="padding:4px;color:#0a7d0a"><b>Resumed - integration completed.</b></div>'
+    + renderRunLog(dbg.full);
+}
+function stopDbg(){
+  dbg.cur = -1; dbg.snaps = []; render();
+  document.getElementById('console').innerHTML =
+    '<div style="padding:6px;color:#a33">Debug session terminated by user.</div>';
+}
+document.addEventListener('keydown', e => {
+  if (dbg.snaps.length && e.key === 'F8'){ e.preventDefault(); resumeDbg(); }
+});
+async function saveProj(){
+  const name = prompt('Project name:', 'WICT_Studio_Project');
+  if (!name) return;
+  await fetch('/studio/save', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name, assembly: asm})});
+  loadProjects();
+}
+async function loadProjects(){
+  const d = await (await fetch('/studio/projects')).json();
+  document.getElementById('projList').innerHTML =
+    Object.entries(d).map(([n, a]) =>
+      `<div class="proj" data-n="${n}">&#128193; ${n}</div>`).join('')
+    || '<div style="padding:8px;color:#888">No saved projects.</div>';
+  document.querySelectorAll('.proj').forEach(el =>
+    el.onclick = () => { asm = d[el.dataset.n]; sel = -1; render(); });
+}
+function clearAsm(){ asm=[{type:"workday_in",props:{service:"Custom Studio Integration",launch_params:""}}]; sel=-1; render(); }
+buildPalette(); render(); loadProjects();
+</script></body></html>"""
+
+STUDIO_HTML = STUDIO_HTML.replace("__DEFAULT_XSLT__", json.dumps(DEFAULT_XSLT))
+
+
+@app.route("/task/workday-studio")
+def workday_studio():
+    return Response(STUDIO_HTML, mimetype="text/html")
+
+
+# ---------------------------------------------------------------------------
+# MVEL Playground - learn MVEL 2.0 hands-on (mvel.documentnode.com)
+# ---------------------------------------------------------------------------
+SAMPLE_MESSAGE = ('<wd:Worker xmlns:wd="urn:com.workday/bsvc">'
+                  '<wd:Worker_ID>21001</wd:Worker_ID>'
+                  '<wd:Last_Name>Sharma</wd:Last_Name></wd:Worker>')
+
+
+# ---------------------------------------------------------------------------
+# MVEL Console - a playground for learning MVEL 2.0 expressions
+# ---------------------------------------------------------------------------
+TUTORIAL_SCRIPT = """// MVEL 2.0 playground (mvel.documentnode.com syntax)
+// Context available: props, vars, message.text, plus sample data below.
+
+count = 0;
+foreach (name : ['Jim', 'Bob', 'Smith']) {
+   count = count + 1
+};
+
+if (count > 2) { vars.size = 'BIG' } else { vars.size = 'small' };
+
+vars.coerced   = ('123' == 123);          // value coercion -> true
+vars.hasBob    = (['Jim','Bob'] contains 'Bob');
+vars.regexOk   = ('21001' ~= '[0-9]+');
+vars.safe      = vars.?notThere;          // null-safe -> null
+vars.upper     = 'studio'.toUpperCase();
+vars.names     = (name in vars.people);   // projection
+vars.period    = props.period_end_date;
+
+'Done: ' + count + ' people, size=' + vars.size"""
+
+
+def _console_ctx():
+    return {
+        "props": AttrDict({"period_end_date": "2026-06-30", "log": "true"}),
+        "vars": AttrDict({
+            "totalWorkers": 23,
+            "people": [AttrDict({"name": "Aarav", "org": "Finance"}),
+                       AttrDict({"name": "Priya", "org": "Legal"})],
+        }),
+        "message": AttrDict({"text": "<wd:Worker><wd:ID>21001</wd:ID>"
+                                     "</wd:Worker>"}),
+    }
+
+
+MVEL_REF = [
+    ("Property expression", "props.period_end_date"),
+    ("Last value out / return", "a = 10; a * 2   // returns 20"),
+    ("Value coercion", "'123' == 123   // true"),
+    ("empty / null / nil", "'' == empty; x == null"),
+    ("Inline list / map / array", "['a','b']  ['k':'v']  {1,2,3}"),
+    ("foreach (list/string/int)", "foreach (x : 5) { s = s + x }"),
+    ("if / else if / else", "if (n > 2) { ... } else { ... }"),
+    ("while / until", "while (n < 3) { n = n + 1 }"),
+    ("Ternary", "n > 0 ? 'Yes' : 'No'"),
+    ("contains", "['Jim','Bob'] contains 'Bob'"),
+    ("Regex ~= (full match)", "'21001' ~= '[0-9]+'"),
+    ("Null-safe navigation", "vars.?maybeMissing"),
+    ("Projection", "(name in vars.people)"),
+    ("Java string methods", "'x'.toUpperCase() .trim() .length()"),
+    ("Helpers", "now() today() size(x) substring(s,0,3) sleep(ms) isdef x"),
+    ("Interpolation in props", "@{vars.totalWorkers} workers"),
+]
+
+
+@app.route("/studio/mvel-eval", methods=["POST"])
+def studio_mvel_eval():
+    data = request.get_json(force=True)
+    ctx = _console_ctx()
+    try:
+        lines, last = mvel_exec(data.get("script", ""), ctx)
+        return Response(json.dumps({"lines": lines, "last": repr(last),
+                                    "vars": ctx["vars"]}, default=str),
+                        mimetype="application/json")
+    except Exception as e:
+        return Response(json.dumps(
+            {"error": f"{type(e).__name__}: {e}"}),
+            mimetype="application/json")
+
+
+@app.route("/task/mvel-console", methods=["GET", "POST"])
+def mvel_console():
+    script = request.form.get("script", TUTORIAL_SCRIPT)
+    out = ""
+    if request.method == "POST":
+        ctx = _console_ctx()
+        try:
+            lines, last = mvel_exec(script, ctx)
+            out = "\n".join(lines)
+            out += f"\n\n>>> last value out: {last!r}"
+            out += "\n\n--- vars after run ---\n" + json.dumps(
+                ctx["vars"], indent=2, default=str)
+        except Exception as e:
+            out = f"MVEL error: {type(e).__name__}: {e}"
+    ref_rows = "".join(f"<tr><td>{n}</td><td><code>{x}</code></td></tr>"
+                       for n, x in MVEL_REF)
+    page = f"""<!doctype html><html><head><title>MVEL Console</title><style>
+body{{font-family:Segoe UI,Arial;margin:0;background:#f4f6f8}}
+.bar{{background:#0875e1;color:#fff;padding:12px 20px;font-size:17px}}
+.wrap{{display:flex;gap:14px;padding:14px}}
+.col{{background:#fff;border:1px solid #d6dde4;border-radius:6px;
+     padding:14px;flex:1}}
+textarea{{width:100%;height:330px;font-family:Consolas,monospace;
+     font-size:13px;border:1px solid #c8d2da;border-radius:4px;
+     padding:8px;box-sizing:border-box}}
+pre{{background:#1e1e1e;color:#9cdcfe;padding:10px;border-radius:4px;
+     font-size:12px;white-space:pre-wrap;max-height:330px;overflow:auto}}
+button{{background:#0875e1;color:#fff;border:0;border-radius:4px;
+     padding:9px 22px;font-size:14px;cursor:pointer;margin-top:8px}}
+table{{border-collapse:collapse;font-size:12px;width:100%}}
+td{{border-bottom:1px solid #eef2f5;padding:5px 8px;vertical-align:top}}
+code{{background:#f0f4f8;padding:1px 5px;border-radius:3px}}
+h3{{margin:4px 0 10px}}
+small{{color:#777}}</style></head><body>
+<div class="bar">MVEL Console - SUPER_TENANT
+  <small style="color:#cfe3fa">&nbsp; context: props, vars (totalWorkers,
+  people), message.text - per the MVEL 2.0 Language Guide</small></div>
+<div class="wrap">
+ <div class="col"><h3>Script</h3>
+  <form method="post"><textarea name="script">{script}</textarea>
+  <button>Evaluate</button></form></div>
+ <div class="col"><h3>Result</h3><pre>{out or
+  "Press Evaluate. Each statement logs its value; loops/ifs run for real."}
+  </pre></div>
+ <div class="col" style="max-width:380px"><h3>Syntax reference</h3>
+  <table>{ref_rows}</table></div>
+</div></body></html>"""
+    return Response(page, mimetype="text/html")

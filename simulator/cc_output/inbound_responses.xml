@@ -1,0 +1,107 @@
+<Responses>
+<?xml version="1.0"?>
+<env:Envelope xmlns:env="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wd="urn:com.workday/bsvc">
+  <env:Body>
+    <wd:Request_One_Time_Payment_Request>
+      <wd:One_Time_Payment_Data>
+        <wd:Employee_Reference>
+          <wd:ID wd:type="Employee_ID">21001</wd:ID>
+        </wd:Employee_Reference>
+        <wd:One_Time_Payment_Plan_Reference>
+          <wd:ID wd:type="One_Time_Payment_Plan_ID">Spot Bonus</wd:ID>
+        </wd:One_Time_Payment_Plan_Reference>
+        <wd:Amount>500.00</wd:Amount>
+        <wd:Currency_Reference>
+          <wd:ID wd:type="Currency_ID">USD</wd:ID>
+        </wd:Currency_Reference>
+        <wd:Comment>Q2 recognition award</wd:Comment>
+      </wd:One_Time_Payment_Data>
+    </wd:Request_One_Time_Payment_Request>
+  </env:Body>
+</env:Envelope>
+
+<?xml version="1.0"?>
+<env:Envelope xmlns:env="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wd="urn:com.workday/bsvc">
+  <env:Body>
+    <wd:Request_One_Time_Payment_Request>
+      <wd:One_Time_Payment_Data>
+        <wd:Employee_Reference>
+          <wd:ID wd:type="Employee_ID">21005</wd:ID>
+        </wd:Employee_Reference>
+        <wd:One_Time_Payment_Plan_Reference>
+          <wd:ID wd:type="One_Time_Payment_Plan_ID">Spot Bonus</wd:ID>
+        </wd:One_Time_Payment_Plan_Reference>
+        <wd:Amount>750.00</wd:Amount>
+        <wd:Currency_Reference>
+          <wd:ID wd:type="Currency_ID">USD</wd:ID>
+        </wd:Currency_Reference>
+        <wd:Comment>Project delivery bonus</wd:Comment>
+      </wd:One_Time_Payment_Data>
+    </wd:Request_One_Time_Payment_Request>
+  </env:Body>
+</env:Envelope>
+
+<?xml version="1.0"?>
+<env:Envelope xmlns:env="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wd="urn:com.workday/bsvc">
+  <env:Body>
+    <wd:Request_One_Time_Payment_Request>
+      <wd:One_Time_Payment_Data>
+        <wd:Employee_Reference>
+          <wd:ID wd:type="Employee_ID">21013</wd:ID>
+        </wd:Employee_Reference>
+        <wd:One_Time_Payment_Plan_Reference>
+          <wd:ID wd:type="One_Time_Payment_Plan_ID">Referral Bonus</wd:ID>
+        </wd:One_Time_Payment_Plan_Reference>
+        <wd:Amount>1000.00</wd:Amount>
+        <wd:Currency_Reference>
+          <wd:ID wd:type="Currency_ID">USD</wd:ID>
+        </wd:Currency_Reference>
+        <wd:Comment>Employee referral payout</wd:Comment>
+      </wd:One_Time_Payment_Data>
+    </wd:Request_One_Time_Payment_Request>
+  </env:Body>
+</env:Envelope>
+
+<?xml version="1.0"?>
+<env:Envelope xmlns:env="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wd="urn:com.workday/bsvc">
+  <env:Body>
+    <wd:Request_One_Time_Payment_Request>
+      <wd:One_Time_Payment_Data>
+        <wd:Employee_Reference>
+          <wd:ID wd:type="Employee_ID">99999</wd:ID>
+        </wd:Employee_Reference>
+        <wd:One_Time_Payment_Plan_Reference>
+          <wd:ID wd:type="One_Time_Payment_Plan_ID">Spot Bonus</wd:ID>
+        </wd:One_Time_Payment_Plan_Reference>
+        <wd:Amount>300.00</wd:Amount>
+        <wd:Currency_Reference>
+          <wd:ID wd:type="Currency_ID">USD</wd:ID>
+        </wd:Currency_Reference>
+        <wd:Comment>Bad row - worker does not exist</wd:Comment>
+      </wd:One_Time_Payment_Data>
+    </wd:Request_One_Time_Payment_Request>
+  </env:Body>
+</env:Envelope>
+
+<?xml version="1.0"?>
+<env:Envelope xmlns:env="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wd="urn:com.workday/bsvc">
+  <env:Body>
+    <wd:Request_One_Time_Payment_Request>
+      <wd:One_Time_Payment_Data>
+        <wd:Employee_Reference>
+          <wd:ID wd:type="Employee_ID">21020</wd:ID>
+        </wd:Employee_Reference>
+        <wd:One_Time_Payment_Plan_Reference>
+          <wd:ID wd:type="One_Time_Payment_Plan_ID">Spot Bonus</wd:ID>
+        </wd:One_Time_Payment_Plan_Reference>
+        <wd:Amount>250.00</wd:Amount>
+        <wd:Currency_Reference>
+          <wd:ID wd:type="Currency_ID">USD</wd:ID>
+        </wd:Currency_Reference>
+        <wd:Comment>Peer recognition</wd:Comment>
+      </wd:One_Time_Payment_Data>
+    </wd:Request_One_Time_Payment_Request>
+  </env:Body>
+</env:Envelope>
+
+</Responses>

@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wd:Report_Data xmlns:wd="urn:com.workday.report/CRT_Demo_Manager">
+  <wd:Report_Entry>
+    <wd:Employee_ID>21001</wd:Employee_ID>
+    <wd:First_Name>Aarav</wd:First_Name>
+    <wd:Last_Name>Sharma</wd:Last_Name>
+    <wd:Manager_Name>Sandeep Rao</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>sandeep.rao@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-972-555-0101</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21002</wd:Employee_ID>
+    <wd:First_Name>Meera</wd:First_Name>
+    <wd:Last_Name>Iyer</wd:Last_Name>
+    <wd:Manager_Name>Laura Bennett</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>laura.bennett@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-469-555-0111</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21003</wd:Employee_ID>
+    <wd:First_Name>John</wd:First_Name>
+    <wd:Last_Name>Smith</wd:Last_Name>
+    <wd:Manager_Name>Daniel Okoro</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>daniel.okoro@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-214-555-0121</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21004</wd:Employee_ID>
+    <wd:First_Name>Priya</wd:First_Name>
+    <wd:Last_Name>Patel</wd:Last_Name>
+    <wd:Manager_Name>Priscilla Vance</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>priscilla.vance@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-972-555-0131</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21005</wd:Employee_ID>
+    <wd:First_Name>Carlos</wd:First_Name>
+    <wd:Last_Name>Gomez</wd:Last_Name>
+    <wd:Manager_Name>Marco Bianchi</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>marco.bianchi@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-469-555-0141</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21006</wd:Employee_ID>
+    <wd:First_Name>Wei</wd:First_Name>
+    <wd:Last_Name>Chen</wd:Last_Name>
+    <wd:Manager_Name>Sandeep Rao</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>sandeep.rao@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-972-555-0101</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21007</wd:Employee_ID>
+    <wd:First_Name>Sofia</wd:First_Name>
+    <wd:Last_Name>Rossi</wd:Last_Name>
+    <wd:Manager_Name>Laura Bennett</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>laura.bennett@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-469-555-0111</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21008</wd:Employee_ID>
+    <wd:First_Name>Liam</wd:First_Name>
+    <wd:Last_Name>Brown</wd:Last_Name>
+    <wd:Manager_Name>Daniel Okoro</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>daniel.okoro@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-214-555-0121</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21009</wd:Employee_ID>
+    <wd:First_Name>Anika</wd:First_Name>
+    <wd:Last_Name>Kapoor</wd:Last_Name>
+    <wd:Manager_Name>Priscilla Vance</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>priscilla.vance@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-972-555-0131</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21010</wd:Employee_ID>
+    <wd:First_Name>David</wd:First_Name>
+    <wd:Last_Name>Miller</wd:Last_Name>
+    <wd:Manager_Name>Marco Bianchi</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>marco.bianchi@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-469-555-0141</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21011</wd:Employee_ID>
+    <wd:First_Name>Fatima</wd:First_Name>
+    <wd:Last_Name>Khan</wd:Last_Name>
+    <wd:Manager_Name>Sandeep Rao</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>sandeep.rao@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-972-555-0101</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21012</wd:Employee_ID>
+    <wd:First_Name>Kenji</wd:First_Name>
+    <wd:Last_Name>Tanaka</wd:Last_Name>
+    <wd:Manager_Name>Laura Bennett</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>laura.bennett@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-469-555-0111</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21013</wd:Employee_ID>
+    <wd:First_Name>Olivia</wd:First_Name>
+    <wd:Last_Name>Davis</wd:Last_Name>
+    <wd:Manager_Name>Daniel Okoro</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>daniel.okoro@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-214-555-0121</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21014</wd:Employee_ID>
+    <wd:First_Name>Ravi</wd:First_Name>
+    <wd:Last_Name>Menon</wd:Last_Name>
+    <wd:Manager_Name>Priscilla Vance</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>priscilla.vance@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-972-555-0131</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21015</wd:Employee_ID>
+    <wd:First_Name>Emma</wd:First_Name>
+    <wd:Last_Name>Wilson</wd:Last_Name>
+    <wd:Manager_Name>Marco Bianchi</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>marco.bianchi@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-469-555-0141</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21016</wd:Employee_ID>
+    <wd:First_Name>Noah</wd:First_Name>
+    <wd:Last_Name>Garcia</wd:Last_Name>
+    <wd:Manager_Name>Sandeep Rao</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>sandeep.rao@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-972-555-0101</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21017</wd:Employee_ID>
+    <wd:First_Name>Isabella</wd:First_Name>
+    <wd:Last_Name>Moore</wd:Last_Name>
+    <wd:Manager_Name>Laura Bennett</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>laura.bennett@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-469-555-0111</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21018</wd:Employee_ID>
+    <wd:First_Name>Arjun</wd:First_Name>
+    <wd:Last_Name>Nair</wd:Last_Name>
+    <wd:Manager_Name>Daniel Okoro</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>daniel.okoro@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-214-555-0121</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21019</wd:Employee_ID>
+    <wd:First_Name>Grace</wd:First_Name>
+    <wd:Last_Name>Lee</wd:Last_Name>
+    <wd:Manager_Name>Priscilla Vance</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>priscilla.vance@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-972-555-0131</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21020</wd:Employee_ID>
+    <wd:First_Name>Mateo</wd:First_Name>
+    <wd:Last_Name>Lopez</wd:Last_Name>
+    <wd:Manager_Name>Marco Bianchi</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>marco.bianchi@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-469-555-0141</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21021</wd:Employee_ID>
+    <wd:First_Name>Hana</wd:First_Name>
+    <wd:Last_Name>Sato</wd:Last_Name>
+    <wd:Manager_Name>Sandeep Rao</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>sandeep.rao@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-972-555-0101</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21022</wd:Employee_ID>
+    <wd:First_Name>Lucas</wd:First_Name>
+    <wd:Last_Name>Martin</wd:Last_Name>
+    <wd:Manager_Name>Laura Bennett</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>laura.bennett@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-469-555-0111</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+  <wd:Report_Entry>
+    <wd:Employee_ID>21023</wd:Employee_ID>
+    <wd:First_Name>Divya</wd:First_Name>
+    <wd:Last_Name>Reddy</wd:Last_Name>
+    <wd:Manager_Name>Daniel Okoro</wd:Manager_Name>
+    <wd:PS_LRV_Manager_Email>daniel.okoro@supertenant.demo</wd:PS_LRV_Manager_Email>
+    <wd:Manager_Phone_Primary>+1-214-555-0121</wd:Manager_Phone_Primary>
+  </wd:Report_Entry>
+</wd:Report_Data>

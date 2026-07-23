@@ -1,0 +1,84 @@
+{
+  "INT_Demo_Inbound_Studio": [
+    {
+      "type": "workday_in",
+      "props": {
+        "service": "INT_Demo_Inbound_Studio",
+        "launch_params": "pay_period=2026-06-30"
+      }
+    },
+    {
+      "type": "local_in",
+      "props": {
+        "filename": "payroll_inputs.csv"
+      }
+    },
+    {
+      "type": "mediation",
+      "props": {
+        "name": "ParseInputFile",
+        "on_error": "stop"
+      },
+      "bp": true
+    },
+    {
+      "type": "store",
+      "props": {
+        "label": "input-file"
+      }
+    },
+    {
+      "type": "csv_to_xml",
+      "props": {
+        "delimiter": ","
+      },
+      "bp": true
+    },
+    {
+      "type": "splitter",
+      "props": {
+        "element": "Row"
+      }
+    },
+    {
+      "type": "xslt",
+      "props": {
+        "stylesheet": "<?xml version=\"1.0\"?>\n<xsl:stylesheet version=\"1.0\" xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\">\n<xsl:output method=\"xml\"/>\n<xsl:template match=\"/Row\">\n<env:Envelope xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:wd=\"urn:com.workday/bsvc\"><env:Body>\n<wd:Submit_Payroll_Input_Request wd:version=\"v42.0\">\n  <wd:Payroll_Input_Data>\n    <wd:Worker_Reference><wd:ID wd:type=\"Employee_ID\"><xsl:value-of select=\"Employee_ID\"/></wd:ID></wd:Worker_Reference>\n    <wd:Pay_Component><xsl:value-of select=\"Pay_Component\"/></wd:Pay_Component>\n    <wd:Amount><xsl:value-of select=\"Amount\"/></wd:Amount>\n  </wd:Payroll_Input_Data>\n</wd:Submit_Payroll_Input_Request>\n</env:Body></env:Envelope>\n</xsl:template></xsl:stylesheet>"
+      }
+    },
+    {
+      "type": "wd_out_soap",
+      "props": {
+        "service": "Payroll",
+        "operation": "Submit_Payroll_Input",
+        "send_message": "true"
+      }
+    },
+    {
+      "type": "aggregator",
+      "props": {
+        "wrapper": "Responses"
+      }
+    },
+    {
+      "type": "mediation",
+      "props": {
+        "name": "FinalizeRun",
+        "on_error": "stop"
+      }
+    },
+    {
+      "type": "pim",
+      "props": {
+        "severity": "Info",
+        "message": "Inbound payroll load complete for period @{props.pay_period}"
+      }
+    },
+    {
+      "type": "write_file",
+      "props": {
+        "filename": "inbound_responses.xml"
+      }
+    }
+  ]
+}

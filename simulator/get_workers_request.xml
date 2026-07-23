@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<env:Envelope xmlns:env="http://schemas.xmlsoap.org/soap/envelope/"
+              xmlns:wd="urn:com.workday/bsvc">
+  <env:Body>
+    <wd:Get_Workers_Request wd:version="v42.0">
+      <wd:Response_Filter>
+        <wd:Page>1</wd:Page>
+        <wd:Count>10</wd:Count>
+      </wd:Response_Filter>
+      <wd:Response_Group>
+        <wd:Include_Personal_Information>true</wd:Include_Personal_Information>
+        <wd:Include_Employment_Information>true</wd:Include_Employment_Information>
+      </wd:Response_Group>
+    </wd:Get_Workers_Request>
+  </env:Body>
+</env:Envelope>

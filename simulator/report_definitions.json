@@ -1,0 +1,506 @@
+[
+  {
+    "report_name": "Worker_Report",
+    "report_type": "Simple",
+    "data_source": "All Workers",
+    "columns": [
+      "Employee_ID",
+      "First_Name",
+      "Last_Name",
+      "Email",
+      "Hire_Date",
+      "Org",
+      "Active"
+    ],
+    "filter": null,
+    "enable_as_web_service": true
+  },
+  {
+    "report_name": "WICT_Active_Workers_Adv",
+    "report_type": "Advanced",
+    "data_source": "All Active Workers",
+    "columns": [
+      "Employee_ID",
+      "P_Full_Name",
+      "P_Email_Domain",
+      "P_Tenure_Years",
+      "P_Org_Code",
+      "P_Status_Text",
+      "P_Constant_Text"
+    ],
+    "filter": {
+      "field": "P_Status_Text",
+      "equals": "ACTIVE"
+    },
+    "enable_as_web_service": true
+  },
+  {
+    "report_name": "WICT_Internal_Only",
+    "report_type": "Advanced",
+    "data_source": "All Workers",
+    "columns": [
+      "Employee_ID",
+      "P_Full_Name"
+    ],
+    "filter": null,
+    "enable_as_web_service": false
+  },
+  {
+    "report_name": "WICT_CalcField_Showcase",
+    "report_type": "Advanced",
+    "data_source": "All Workers",
+    "columns": [
+      "Employee_ID",
+      "P_Display_Name",
+      "P_Name_Upper",
+      "P_Emp_ID_Suffix",
+      "P_Status_Text",
+      "P_Is_Finance",
+      "P_Tenure_Years",
+      "P_Tenure_Award",
+      "P_First_Anniversary",
+      "P_Hire_Year_Start",
+      "P_Bonus_Count",
+      "P_Bonus_Total",
+      "P_Spot_Bonuses",
+      "P_Spot_Bonus_Total",
+      "P_Latest_Bonus_Amt",
+      "P_Constant_Text"
+    ],
+    "filter": null,
+    "enable_as_web_service": true
+  },
+  {
+    "report_name": "WICT_Compensation_Report",
+    "report_type": "Advanced",
+    "data_source": "All Workers",
+    "columns": [
+      "Employee_ID",
+      "First_Name",
+      "Last_Name",
+      "Comp_Plan",
+      "Base_Salary",
+      "Currency",
+      "Pay_Group"
+    ],
+    "filter": null,
+    "enable_as_web_service": true
+  },
+  {
+    "report_name": "WICT_Benefits_Enrollments",
+    "report_type": "Advanced",
+    "data_source": "All Active Workers",
+    "columns": [
+      "Employee_ID",
+      "First_Name",
+      "Last_Name",
+      "Benefits"
+    ],
+    "filter": {
+      "field": "Active",
+      "equals": "1"
+    },
+    "enable_as_web_service": true
+  },
+  {
+    "report_name": "CF_Reference_Report",
+    "report_type": "Advanced",
+    "data_source": "All Workers",
+    "columns": [
+      "Employee_ID",
+      "CF_Tenure_Band",
+      "CF_Hire_Date_US",
+      "CF_Salary_Formatted",
+      "CF_Salary_INR",
+      "CF_Benefit_Plans",
+      "CF_Org_Spanish",
+      "CF_LastName_Length",
+      "CF_Pay_Periods",
+      "CF_Review_Date"
+    ],
+    "filter": null,
+    "enable_as_web_service": true
+  },
+  {
+    "report_name": "WICT_Workers_By_Org_Prompted",
+    "report_type": "Advanced",
+    "data_source": "All Workers",
+    "columns": [
+      "Employee_ID",
+      "First_Name",
+      "Last_Name",
+      "Org",
+      "Pay_Group"
+    ],
+    "filter": null,
+    "enable_as_web_service": true,
+    "prompts": [
+      {
+        "name": "Org",
+        "field": "Org",
+        "required": true
+      }
+    ]
+  },
+  {
+    "report_name": "PS_Advanced_11",
+    "report_type": "Advanced",
+    "data_source": "All Active and Terminated Workers",
+    "columns": [
+      "First_Name",
+      "Last_Name",
+      "PS_Concatenate",
+      "PS_Substring",
+      "Total Compensation",
+      "Total Base Pay Annualized - Amount",
+      "PS_Total_base_pay_per_month",
+      "PS_Addition",
+      "PS_Total_base_pay_INR"
+    ],
+    "filter": null,
+    "enable_as_web_service": true
+  },
+  {
+    "report_name": "CRT_INT005_Raas",
+    "report_type": "Advanced",
+    "data_source": "All Workers",
+    "columns": [
+      "Employee_ID",
+      "First_Name",
+      "Last_Name",
+      "Child_Names",
+      "Emergency_Contact_Name",
+      "Manager_Name",
+      "PS_ESI_Spouse_Age",
+      "Relationship"
+    ],
+    "column_defs": [
+      {
+        "field": "Employee_ID",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "First_Name",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "Last_Name",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "Child_Names",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "Emergency_Contact_Name",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "Manager_Name",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "PS_ESI_Spouse_Age",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "Relationship",
+        "business_object": "Dependents",
+        "heading": "",
+        "format": "",
+        "options": ""
+      }
+    ],
+    "filter": null,
+    "subfilter": null,
+    "sort": null,
+    "prompts": [],
+    "enable_as_web_service": true
+  },
+  {
+    "report_name": "CRT_Demo_Manager",
+    "report_type": "Advanced",
+    "data_source": "All Workers",
+    "columns": [
+      "Employee_ID",
+      "PS_Concatenate",
+      "Manager_Name",
+      "PS_LRV_Manager_Email",
+      "Manager_Phone_Primary"
+    ],
+    "column_defs": [
+      {
+        "field": "Employee_ID",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "PS_Concatenate",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "Manager_Name",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "PS_LRV_Manager_Email",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "Manager_Phone_Primary",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      }
+    ],
+    "filter": null,
+    "subfilter": null,
+    "sort": null,
+    "prompts": [],
+    "enable_as_web_service": true
+  },
+  {
+    "report_name": "CRT_INT001_Raas1",
+    "report_type": "Advanced",
+    "data_source": "All Workers",
+    "columns": [
+      "Employee_ID",
+      "First_Name",
+      "Hire_Date",
+      "Active"
+    ],
+    "column_defs": [
+      {
+        "field": "Employee_ID",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "First_Name",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "Hire_Date",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "Active",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      }
+    ],
+    "filter": null,
+    "subfilter": null,
+    "sort": null,
+    "prompts": [],
+    "enable_as_web_service": false
+  },
+  {
+    "report_name": "CRT_INT01_Raas",
+    "report_type": "Advanced",
+    "data_source": "All Workers",
+    "columns": [
+      "Employee_ID",
+      "First_Name",
+      "Hire_Date",
+      "Comp_Plan",
+      "CF_Benefit_Plans",
+      "CF_DependentsCount",
+      "CF_DependentRelationshipESI",
+      "CF_DependentChildCounts"
+    ],
+    "column_defs": [
+      {
+        "field": "Employee_ID",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "First_Name",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "Hire_Date",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "Comp_Plan",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "CF_Benefit_Plans",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "CF_DependentsCount",
+        "business_object": "Dependents",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "CF_DependentRelationshipESI",
+        "business_object": "Dependents",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "CF_DependentChildCounts",
+        "business_object": "Dependents",
+        "heading": "",
+        "format": "",
+        "options": ""
+      }
+    ],
+    "filter": null,
+    "subfilter": null,
+    "sort": null,
+    "prompts": [],
+    "enable_as_web_service": true
+  },
+  {
+    "report_name": "CRT_INT02_Raas",
+    "report_type": "Advanced",
+    "data_source": "All Workers",
+    "columns": [
+      "Employee_ID",
+      "First_Name",
+      "Last_Name",
+      "Emergency_Contact_Name",
+      "Emergency_Contact_Phone",
+      "Emergency_Contact_Relationship",
+      "Emergency_Contact_Name",
+      "Manager_Name",
+      "Dependent_Names"
+    ],
+    "column_defs": [
+      {
+        "field": "Employee_ID",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "First_Name",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "Last_Name",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "Emergency_Contact_Name",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "Emergency_Contact_Phone",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "Emergency_Contact_Relationship",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "Emergency_Contact_Name",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "Manager_Name",
+        "business_object": "Worker",
+        "heading": "",
+        "format": "",
+        "options": ""
+      },
+      {
+        "field": "Dependent_Names",
+        "business_object": "Dependents",
+        "heading": "",
+        "format": "",
+        "options": ""
+      }
+    ],
+    "filter_conditions": [],
+    "aggregation_filters": [],
+    "subfilter": null,
+    "sort": null,
+    "prompts": [],
+    "enable_as_web_service": true
+  }
+]

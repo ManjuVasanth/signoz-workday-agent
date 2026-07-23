@@ -1,0 +1,136 @@
+[
+  {
+    "system_name": "INT001_CCW_Outbound",
+    "template": "Core Connector: Worker",
+    "services": {
+      "Core Connector: Worker ESB Service*": true,
+      "Core Connector: Date Launch Parameters": true,
+      "Core Connector: Integration Maps - Worker": true,
+      "Core Connector: Worker Integration Configuration": true,
+      "Worker Personal Data Section Fields": true,
+      "Worker Status Data Section Fields": true,
+      "Worker Position Data Section Fields": false,
+      "Worker Compensation Data Section Fields": false
+    },
+    "attributes": {
+      "Version": "40.0",
+      "Output_Filename": "",
+      "Output_Format": "CSV",
+      "Include_Inactive_Workers": false
+    },
+    "fields": {
+      "Worker Personal Data Section Fields": {
+        "First_Name": true,
+        "Last_Name": true,
+        "Email": true
+      },
+      "Worker Status Data Section Fields": {
+        "Active": true,
+        "Hire_Date": true
+      },
+      "Worker Position Data Section Fields": {
+        "Org": false
+      },
+      "Worker Compensation Data Section Fields": {
+        "Bonus_Count": false,
+        "Bonus_Total": false
+      }
+    },
+    "maps": {},
+    "field_maps": {},
+    "workday_account": "ISU_INT001",
+    "last_successful": {
+      "as_of_entry_moment": "2026-06-24T22:42",
+      "effective_date": "2026-06-24"
+    }
+  },
+  {
+    "system_name": "INT001_CCW_Inbound",
+    "template": "Core Connector: Worker",
+    "services": {
+      "Core Connector: Worker ESB Service*": true,
+      "Core Connector: Date Launch Parameters": true,
+      "Core Connector: Integration Maps - Worker": true,
+      "Core Connector: Worker Integration Configuration": true,
+      "Worker Personal Data Section Fields": true,
+      "Worker Status Data Section Fields": true,
+      "Worker Position Data Section Fields": true,
+      "Worker Compensation Data Section Fields": true
+    },
+    "attributes": {
+      "Version": "40.0",
+      "Output_Filename": "",
+      "Output_Format": "XML",
+      "Include_Inactive_Workers": false
+    },
+    "fields": {
+      "Worker Personal Data Section Fields": {
+        "First_Name": true,
+        "Last_Name": true,
+        "Email": true
+      },
+      "Worker Status Data Section Fields": {
+        "Active": true,
+        "Hire_Date": true
+      },
+      "Worker Position Data Section Fields": {
+        "Org": true
+      },
+      "Worker Compensation Data Section Fields": {
+        "Bonus_Count": true,
+        "Bonus_Total": true
+      }
+    },
+    "maps": {}
+  },
+  {
+    "system_name": "INT001_Worker_Outbound",
+    "template": "Core Connector: Worker",
+    "services": {
+      "Core Connector: Worker ESB Service*": true,
+      "Core Connector: Date Launch Parameters": true,
+      "Core Connector: Integration Maps - Worker": true,
+      "Core Connector: Worker Integration Configuration": true,
+      "Worker Personal Data Section Fields": true,
+      "Worker Status Data Section Fields": true,
+      "Worker Position Data Section Fields": false,
+      "Worker Compensation Data Section Fields": false
+    },
+    "attributes": {
+      "Version": "40.0",
+      "Output_Filename": "",
+      "Output_Format": "CSV",
+      "Include_Inactive_Workers": false
+    },
+    "fields": {
+      "Worker Personal Data Section Fields": {
+        "First_Name": true,
+        "Last_Name": false,
+        "Email": true
+      },
+      "Worker Status Data Section Fields": {
+        "Active": true,
+        "Hire_Date": true
+      },
+      "Worker Position Data Section Fields": {
+        "Org": true
+      },
+      "Worker Compensation Data Section Fields": {
+        "Bonus_Count": false,
+        "Bonus_Total": false
+      }
+    },
+    "maps": {},
+    "field_maps": {
+      "First_Name": "EmpName",
+      "Email": "EmpEmail",
+      "Active": "EmpStatus",
+      "Hire_Date": "EmpHireDate"
+    },
+    "workday_account": "ISU_INT001",
+    "last_successful": {
+      "as_of_entry_moment": "2026-06-23T23:41",
+      "effective_date": "2026-06-23"
+    }
+  }
+]
