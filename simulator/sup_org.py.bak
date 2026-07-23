@@ -24,7 +24,7 @@ INSTALL
 -------
 1. Drop next to workday_ui.py / orchestrate.py.
 2. In workday_ui.py main block add:  import sup_org   # noqa: F401
-3. Restart, Ctrl+F5. Open:  http://localhost:8443/extend/screen/create-sup-org
+3. Restart, Ctrl+F5. Open:  http://127.0.0.1:8443/extend/screen/create-sup-org
 """
 
 import os

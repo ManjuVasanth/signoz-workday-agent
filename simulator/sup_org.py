@@ -192,8 +192,8 @@ def create_sup_org_screen():
         res = orchestrate.run_orchestration(orch, "Extend Submit", inputs=inputs)
         ctx = res.get("context", {})
         result = (ctx.get("Result") or {})
-        call = (ctx.get("CallHumanResources") or {}).get("response", {})
-        status = result.get("status") or call.get("status") or res.get("status")
+        call = ((ctx.get("CallHumanResources") or {}).get("response") or {})
+        status = (result or {}).get("status") or (call or {}).get("status") or (res or {}).get("status") or "Error"
         org_ref = result.get("orgRef") or call.get("Organization_Reference")
         message = result.get("message") or call.get("message", "")
         soap_req = (ctx.get("BuildSoapPayload") or {}).get("message", "")

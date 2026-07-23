@@ -318,6 +318,17 @@
       "staffing": "Job Management",
       "location": "USA_DALLAS",
       "created": "2026-07-23 15:41:45"
+    },
+    "FIN_1007": {
+      "code": "FIN_1007",
+      "name": "Finance Team",
+      "wid": "SUPORG_WID_41FEF2C8F576C4E3",
+      "manager": "John Smith",
+      "subtype": "Department",
+      "superior": "FINANCE_PARENT_ORG",
+      "staffing": "Position Management",
+      "location": "USA_DALLAS",
+      "created": "2026-07-23 16:20:34"
     }
   }
 }

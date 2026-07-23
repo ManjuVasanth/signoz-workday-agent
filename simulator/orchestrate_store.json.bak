@@ -250,7 +250,7 @@
               "props": {
                 "method": "GET",
                 "auth": "No Auth",
-                "url": "http://localhost:8443/tenant/soap/human_resources/exists",
+                "url": "http://127.0.0.1:8443/tenant/soap/human_resources/exists",
                 "queryParams": [
                   {
                     "key": "code",
@@ -290,7 +290,7 @@
                 "method": "POST",
                 "auth": "Default Workday API Credential",
                 "contentType": "text/xml",
-                "url": "http://localhost:8443/tenant/soap/human_resources",
+                "url": "http://127.0.0.1:8443/tenant/soap/human_resources",
                 "bodyRef": "BuildSoapPayload.message"
               }
             },
@@ -658,7 +658,7 @@
           "step": "CheckExists",
           "type": "send-http-request",
           "status": "Completed",
-          "message": "GET http://localhost:8443/tenant/soap/human_resources/exists?code=%7BInput.SupOrgCode%7D -> 200"
+          "message": "GET http://127.0.0.1:8443/tenant/soap/human_resources/exists?code=%7BInput.SupOrgCode%7D -> 200"
         },
         {
           "step": "Existence",
@@ -676,7 +676,7 @@
           "step": "CallHumanResources",
           "type": "send-http-request",
           "status": "Error",
-          "message": "POST http://localhost:8443/tenant/soap/human_resources -> ERROR: HTTP 409"
+          "message": "POST http://127.0.0.1:8443/tenant/soap/human_resources -> ERROR: HTTP 409"
         },
         {
           "step": "Result",
