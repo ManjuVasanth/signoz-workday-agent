@@ -236,22 +236,42 @@ async def run():
             evidence_lines = []
             step_name = "unknown"
             chaos = None
+            status_message = ""
             if target:
                 step_name = str(first_key(target, "name", "spanName"))
+                status_message = str(first_key(target, "status_message",
+                                               "statusMessage") or "")
+                dur = first_key(target, "duration_nano", "durationNano")
+                if "(injected)" in status_message:
+                    chaos = "yes (marked in span status message)"
                 attrs = {}
                 for d in walk(target):
                     for k, v in d.items():
-                        if k.startswith(("step.", "chaos.", "http.", "orchestration.")):
+                        if k.startswith(("step.", "chaos.", "orchestration.")) and v:
                             attrs[k] = v
-                chaos = attrs.get("chaos.injected")
-                evidence_lines.append("Failing span: %s" % step_name)
+                        elif k.startswith("http.") and v not in ("", 0, None):
+                            attrs[k] = v
+                chaos = attrs.get("chaos.injected", chaos)
+                evidence_lines.append("Failing span : %s" % step_name)
+                if status_message:
+                    evidence_lines.append("Span status  : %s" % status_message[:200])
+                if dur:
+                    try:
+                        evidence_lines.append("Duration     : %.2f ms" % (float(dur) / 1e6))
+                    except Exception:
+                        pass
                 for k in sorted(attrs):
                     evidence_lines.append("  %s = %s" % (k, attrs[k]))
-                # events on the span often carry the log message
-                for d in walk(target):
-                    ev_name = first_key(d, "name")
-                    if ev_name and ("ERROR" in str(ev_name) or "->" in str(ev_name)):
-                        evidence_lines.append("  event: %s" % str(ev_name)[:160])
+
+            # pipeline context: every named step span in this trace, in order
+            step_spans = sorted(
+                {str(first_key(sp, "name", "spanName")) for sp in spans
+                 if "step-" in str(first_key(sp, "name", "spanName") or "")})
+            if step_spans:
+                evidence_lines.append("Pipeline steps observed:")
+                for nm in step_spans:
+                    marker = "  [FAILED] " if nm == step_name else "  [ok]     "
+                    evidence_lines.append(marker + nm)
 
             # fall back to whole-trace text for pattern matching
             searchable = "\n".join(evidence_lines) + "\n" + (blob or "")[:8000]
@@ -273,7 +293,7 @@ async def run():
             for i, f in enumerate(fixes, 1):
                 print("  %d. %s" % (i, f))
             print("\nEvidence:")
-            for line in evidence_lines[:15]:
+            for line in evidence_lines[:25]:
                 print("  " + line)
             print("=" * 70)
 
